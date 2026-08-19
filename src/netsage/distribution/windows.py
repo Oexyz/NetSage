@@ -6,7 +6,9 @@ import os
 import shutil
 import sys
 from dataclasses import dataclass
+from importlib import import_module
 from pathlib import Path
+from typing import Any
 
 
 class DistributionInstallError(RuntimeError):
@@ -55,7 +57,7 @@ def remove_path_entry(path_value: str, entry: Path) -> tuple[str, bool]:
 
 
 def _read_user_path() -> tuple[str, int]:
-    import winreg
+    winreg: Any = import_module("winreg")
 
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as key:
         try:
@@ -66,7 +68,7 @@ def _read_user_path() -> tuple[str, int]:
 
 
 def _write_user_path(value: str, value_type: int) -> None:
-    import winreg
+    winreg: Any = import_module("winreg")
 
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment", 0, winreg.KEY_SET_VALUE) as key:
         winreg.SetValueEx(key, "Path", 0, value_type, value)
@@ -75,8 +77,7 @@ def _write_user_path(value: str, value_type: int) -> None:
 def _notify_environment_change() -> None:
     """Best-effort broadcast so newly launched applications see the new PATH."""
     try:
-        import ctypes
-
+        ctypes: Any = import_module("ctypes")
         send_message = ctypes.windll.user32.SendMessageTimeoutW
         send_message(0xFFFF, 0x001A, 0, "Environment", 0x0002, 5000, None)
     except (AttributeError, OSError):
