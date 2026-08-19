@@ -28,9 +28,10 @@ shell, password, private-key, or API-token access.
 | Status | Area | Current boundary |
 |---|---|---|
 | Supported | Developer foundation | Installable Python package, CLI, quality gates, and environment diagnostics |
-| Supported | Core contracts | Network drivers, AI providers, credentials, and brokered tools |
+| Supported | Core architecture | Typed network models, capabilities, validated inventory, Observe policy, redaction, in-memory audit events, and fake driver |
+| Supported | Core contracts | Network drivers, AI providers, credential isolation, and structured broker tools |
 | In development | Network platforms | FortiGate, FortiSwitch, HP/HPE/ArubaOS-Switch, and Aruba AOS-CX |
-| In development | Security pipeline | Credential-backed connections, evidence collection, redaction, and auditing |
+| In development | Security pipeline | Credential-backed connections, persistent audit storage, and evidence collection |
 | Planned | AI providers | Codex, Anthropic Claude, Ollama, and OpenAI-compatible APIs |
 | Planned | Additional vendors | Cisco, Arista, Juniper, and others |
 
@@ -48,7 +49,8 @@ evidence, or tool results.
 - Evidence must be sanitized before it crosses the AI boundary.
 - Tool calls are designed to become auditable without recording secrets.
 
-See the complete [security model](SECURITY.md).
+See the [master architecture](PROJECT_SPEC.md), [current milestone](CURRENT_MILESTONE.md),
+and complete [security model](SECURITY.md).
 
 ## Quick start for contributors
 
@@ -65,11 +67,14 @@ uv run netsage doctor
 
 ## Standalone installation
 
-Release binaries are self-contained and do not require Python or `uv`.
+When a tagged GitHub Release exists, its binaries are self-contained and do not
+require Python or `uv`. No release asset should be assumed to exist until a `v*`
+tag has completed the release workflow successfully.
 
 ### Windows
 
-Download `netsage-windows-x64.exe` from the latest GitHub Release, then run:
+After a release is published, download `netsage-windows-x64.exe` from that GitHub
+Release, then run:
 
 ```powershell
 .\netsage-windows-x64.exe -install
@@ -143,11 +148,14 @@ AI-agent implementation at this stage.
 
 ## Roadmap
 
-### Foundation — current
+### Core architecture — current
 
 - Modern Python 3.13 package managed with `uv`
 - CLI and environment doctor
-- Security boundaries and abstract interfaces
+- Typed vendor-neutral models and explicit driver capabilities
+- Validated non-secret inventory and opaque credential references
+- Observe authorization policy, structured Tool Broker, redaction, and audit events
+- Deterministic fake driver for hardware-free tests
 - Ruff, mypy, pytest, pre-commit, and GitHub Actions
 - Self-contained Windows/Linux release builds and verified user-level installers
 
@@ -155,8 +163,8 @@ AI-agent implementation at this stage.
 
 - Trusted FortiGate connection lifecycle
 - `get_facts()` with fixture-backed parsing tests
-- Sanitized evidence envelope and secret-redaction tests
-- Broker audit-event model
+- Credential resolution exclusively inside the trusted connection layer
+- Capability-aware broker exposure using normalized `DeviceFacts`
 
 ### Vendor and provider expansion — planned
 

@@ -1,12 +1,27 @@
 # NetSage Security Model
 
-NetSage is an early-stage defensive diagnostic tool. Version 0.1 is read-only and does not support configuration changes.
+NetSage is an early-stage defensive diagnostic tool. Version 0.1 is read-only and
+does not support configuration changes.
 
 ## Trust boundaries
 
-The AI provider can request only named, structured operations such as `get_interfaces(device)`. A trusted Tool Broker validates and audits the request, selects a vendor driver, and returns sanitized structured evidence. The AI cannot invoke SSH, arbitrary shell commands, or credential APIs.
+The AI provider can request only named, structured operations such as
+`get_interfaces(device)`. The Tool Broker validates the tool, device, declared
+capability, authorization policy, and result identity before returning redacted,
+structured device data. The AI cannot invoke SSH, arbitrary shell commands, or
+credential APIs.
 
-Credentials are resolved by a trusted connection layer using an OS keychain, SSH agent, or an explicitly development-only provider. Passwords, SSH private keys, and API tokens must never enter prompts, AI context, logs, evidence, or tool results.
+Credentials are resolved by a trusted connection layer using an OS keychain, SSH
+agent, or an explicitly development-only provider. Those providers remain
+fail-closed stubs until their own milestones. Passwords, SSH private keys, API
+tokens, SNMP communities, and AAA shared secrets must never enter prompts, AI
+context, logs, evidence, audit events, or tool results.
+
+Tool results are explicitly marked as untrusted device data. Redaction removes
+known secret fields and patterns, but it does not turn hostnames, descriptions,
+banners, or logs into instructions. Audit events store safe arguments and bounded
+status categories; they intentionally omit raw tool output and arbitrary exception
+messages. The current audit sink is in-memory only and is not persistent.
 
 ## Mandatory principles
 
@@ -18,7 +33,7 @@ Credentials are resolved by a trusted connection layer using an OS keychain, SSH
 6. Vendor commands execute only behind driver and broker allowlists.
 7. Device output is untrusted input and must not be treated as instructions.
 8. Known secret patterns are redacted before evidence reaches an AI provider.
-9. Tool requests and results are designed to become auditable without recording secrets.
+9. Tool requests and results are auditable without recording secrets or raw output.
 10. Configuration changes are outside the v0.1 scope.
 
 ## Security contact

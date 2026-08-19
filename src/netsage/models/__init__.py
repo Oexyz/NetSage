@@ -1,24 +1,41 @@
 """Shared validated data models."""
 
-from pydantic import BaseModel, ConfigDict
+from netsage.models.core import (
+    VLAN,
+    ArpEntry,
+    Capability,
+    CommandResult,
+    CredentialReference,
+    DataTrust,
+    DeviceFacts,
+    DeviceRef,
+    HealthStatus,
+    Interface,
+    InterfaceErrors,
+    InterfaceState,
+    LldpNeighbor,
+    MacEntry,
+    Platform,
+    Route,
+    SystemHealth,
+)
 
-
-class DeviceRef(BaseModel):
-    """Non-secret reference to a managed device."""
-
-    model_config = ConfigDict(frozen=True)
-
-    name: str
-    host: str
-    platform: str
-    credential_ref: str
-
-
-class CommandResult(BaseModel):
-    """Sanitized output returned by a read-only driver operation."""
-
-    model_config = ConfigDict(frozen=True)
-
-    device: str
-    operation: str
-    output: dict[str, object]
+__all__ = [
+    "VLAN",
+    "ArpEntry",
+    "Capability",
+    "CommandResult",
+    "CredentialReference",
+    "DataTrust",
+    "DeviceFacts",
+    "DeviceRef",
+    "HealthStatus",
+    "Interface",
+    "InterfaceErrors",
+    "InterfaceState",
+    "LldpNeighbor",
+    "MacEntry",
+    "Platform",
+    "Route",
+    "SystemHealth",
+]
