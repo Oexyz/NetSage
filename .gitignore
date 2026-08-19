@@ -3,8 +3,8 @@
 !.env.example
 *.key
 *.pem
-credentials*
-secrets*
+/credentials*
+/secrets*
 .venv/
 __pycache__/
 .pytest_cache/
