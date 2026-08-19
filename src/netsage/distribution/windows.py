@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ntpath
 import os
 import shutil
 import sys
@@ -33,7 +34,7 @@ class UninstallResult:
 
 
 def _normalized_path(value: str) -> str:
-    return os.path.normcase(os.path.normpath(os.path.expandvars(value.strip().strip('"'))))
+    return ntpath.normcase(ntpath.normpath(os.path.expandvars(value.strip().strip('"'))))
 
 
 def add_path_entry(path_value: str, entry: Path) -> tuple[str, bool]:

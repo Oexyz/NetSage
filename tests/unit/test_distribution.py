@@ -43,7 +43,7 @@ def test_install_executable_copies_and_updates_path(
 
     assert result.executable.read_bytes() == b"standalone-binary"
     assert result.path_changed is True
-    assert writes == [(f"C:\\Windows;{local_app_data.resolve()}\\NetSage\\bin;", 2)]
+    assert writes == [(f"C:\\Windows;{local_app_data.resolve() / 'NetSage' / 'bin'};", 2)]
 
 
 def test_install_executable_rejects_non_executable(tmp_path: Path) -> None:
