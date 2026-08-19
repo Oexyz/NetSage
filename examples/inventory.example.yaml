@@ -1,0 +1,10 @@
+devices:
+  fortigate-main:
+    host: 192.0.2.1
+    platform: fortios
+    credential_ref: fortinet-readonly
+
+  hp-access-01:
+    host: 192.0.2.2
+    platform: aruba_aoss
+    credential_ref: hp-readonly

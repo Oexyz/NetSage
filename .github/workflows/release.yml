@@ -1,0 +1,99 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to publish
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.asset }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            asset: netsage-windows-x64.exe
+          - runner: ubuntu-latest
+            asset: netsage-linux-x64
+          - runner: ubuntu-24.04-arm
+            asset: netsage-linux-arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --locked --dev
+      - name: Build native executable
+        run: uv run python scripts/package_binary.py "${{ matrix.asset }}"
+      - name: Smoke test executable (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & "artifacts/${{ matrix.asset }}" --version
+          & "artifacts/${{ matrix.asset }}" --help
+      - name: Smoke test executable (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          chmod +x "artifacts/${{ matrix.asset }}"
+          "artifacts/${{ matrix.asset }}" --version
+          "artifacts/${{ matrix.asset }}" --help
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: artifacts/${{ matrix.asset }}
+          if-no-files-found: error
+
+  publish:
+    name: Attest and publish release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Generate checksums
+        shell: bash
+        run: |
+          cd artifacts
+          sha256sum netsage-linux-x64 netsage-linux-arm64 netsage-windows-x64.exe > SHA256SUMS
+      - uses: actions/attest-build-provenance@v3
+        with:
+          subject-path: |
+            artifacts/netsage-linux-x64
+            artifacts/netsage-linux-arm64
+            artifacts/netsage-windows-x64.exe
+            artifacts/SHA256SUMS
+      - name: Create GitHub Release
+        shell: bash
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" artifacts/* --clobber
+          else
+            gh release create "$RELEASE_TAG" artifacts/* --verify-tag --generate-notes
+          fi
