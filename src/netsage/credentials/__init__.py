@@ -31,6 +31,19 @@ class CredentialProvider(ABC):
     async def resolve(self, credential_ref: str) -> Credential: ...
 
 
+class EphemeralCredentialProvider(CredentialProvider):
+    """Hold one credential in process memory only for a bounded live operation."""
+
+    def __init__(self, credential_ref: str, credential: Credential) -> None:
+        self._credential_ref = credential_ref
+        self._credential = credential
+
+    async def resolve(self, credential_ref: str) -> Credential:
+        if credential_ref != self._credential_ref:
+            raise LookupError("Unknown ephemeral credential reference")
+        return self._credential
+
+
 class KeyringCredentialProvider(CredentialProvider):
     """Future OS-keychain-backed provider."""
 

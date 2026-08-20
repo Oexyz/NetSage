@@ -30,8 +30,9 @@ shell, password, private-key, or API-token access.
 | Supported | Developer foundation | Installable Python package, CLI, quality gates, and environment diagnostics |
 | Supported | Core architecture | Typed network models, capabilities, validated inventory, Observe policy, redaction, in-memory audit events, and fake driver |
 | Supported | Core contracts | Network drivers, AI providers, credential isolation, and structured broker tools |
-| In development | Network platforms | FortiGate, FortiSwitch, HP/HPE/ArubaOS-Switch, and Aruba AOS-CX |
-| In development | Security pipeline | Credential-backed connections, persistent audit storage, and evidence collection |
+| Experimental | FortiGate | Fixture-verified read-only SSH facts, interfaces, VLANs, ARP, routes, health, firewall policies, ping, and traceroute |
+| In development | Network platforms | FortiSwitch, HP/HPE/ArubaOS-Switch, and Aruba AOS-CX |
+| In development | Security pipeline | Persistent audit storage and evidence collection |
 | Planned | AI providers | Codex, Anthropic Claude, Ollama, and OpenAI-compatible APIs |
 | Planned | Additional vendors | Cisco, Arista, Juniper, and others |
 
@@ -132,6 +133,17 @@ netsage doctor
 Docker state. The `setup`, `device`, and `devices` commands are intentionally
 safe placeholders until their read-only workflows are implemented.
 
+The experimental FortiGate live test prompts for every connection value and
+keeps its password in process memory only:
+
+```powershell
+uv run netsage fortigate live-test
+```
+
+It discovers and displays the SSH host-key fingerprint before requesting a
+credential, requires explicit process-local trust, collects one passive snapshot,
+and persists neither credentials nor raw device output. See [driver details](docs/drivers.md).
+
 ## Why the foundation is auditable
 
 | Component | Responsibility | AI receives secrets? |
@@ -148,7 +160,7 @@ AI-agent implementation at this stage.
 
 ## Roadmap
 
-### Core architecture — current
+### Core architecture — complete
 
 - Modern Python 3.13 package managed with `uv`
 - CLI and environment doctor
@@ -159,12 +171,14 @@ AI-agent implementation at this stage.
 - Ruff, mypy, pytest, pre-commit, and GitHub Actions
 - Self-contained Windows/Linux release builds and verified user-level installers
 
-### First read-only driver — next
+### FortiGate read-only driver — current
 
-- Trusted FortiGate connection lifecycle
-- `get_facts()` with fixture-backed parsing tests
+- Host-key-pinned AsyncSSH connection lifecycle
+- Prompt-aware collection of paged FortiOS output without changing console settings
+- Typed facts, interfaces, VLANs, ARP, routes, health, and firewall policies
+- Policy-controlled, IP-only ping and traceroute
 - Credential resolution exclusively inside the trusted connection layer
-- Capability-aware broker exposure using normalized `DeviceFacts`
+- Capability-aware Broker tools and sanitized synthetic fixtures
 
 ### Vendor and provider expansion — planned
 

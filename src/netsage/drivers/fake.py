@@ -1,23 +1,23 @@
 """Deterministic driver for tests without network hardware."""
 
 from collections.abc import Sequence
+from ipaddress import IPv4Address, IPv6Address
 
-from netsage.drivers.base import NetworkDriver
+from netsage.drivers.base import NetworkDriver, UnsupportedCapabilityError
 from netsage.models import (
     VLAN,
     ArpEntry,
     Capability,
     DeviceFacts,
+    FirewallPolicy,
     Interface,
     LldpNeighbor,
     MacEntry,
+    PingResult,
     Route,
     SystemHealth,
+    TracerouteResult,
 )
-
-
-class UnsupportedCapabilityError(RuntimeError):
-    """Raised instead of simulating data for an unsupported operation."""
 
 
 class FakeDriver(NetworkDriver):
@@ -34,6 +34,9 @@ class FakeDriver(NetworkDriver):
         routes: Sequence[Route] | None = None,
         lldp_neighbors: Sequence[LldpNeighbor] | None = None,
         system_health: SystemHealth | None = None,
+        firewall_policies: Sequence[FirewallPolicy] | None = None,
+        ping_results: dict[IPv4Address | IPv6Address, PingResult] | None = None,
+        traceroute_results: dict[IPv4Address | IPv6Address, TracerouteResult] | None = None,
     ) -> None:
         self._facts = facts
         self._interfaces = tuple(interfaces) if interfaces is not None else None
@@ -43,6 +46,11 @@ class FakeDriver(NetworkDriver):
         self._routes = tuple(routes) if routes is not None else None
         self._lldp_neighbors = tuple(lldp_neighbors) if lldp_neighbors is not None else None
         self._system_health = system_health
+        self._firewall_policies = (
+            tuple(firewall_policies) if firewall_policies is not None else None
+        )
+        self._ping_results = ping_results
+        self._traceroute_results = traceroute_results
 
     @property
     def capabilities(self) -> frozenset[Capability]:
@@ -57,6 +65,9 @@ class FakeDriver(NetworkDriver):
                 (Capability.ROUTES, self._routes),
                 (Capability.LLDP, self._lldp_neighbors),
                 (Capability.SYSTEM_HEALTH, self._system_health),
+                (Capability.FIREWALL, self._firewall_policies),
+                (Capability.PING, self._ping_results),
+                (Capability.TRACEROUTE, self._traceroute_results),
             )
             if configured is not None
         }
@@ -104,3 +115,18 @@ class FakeDriver(NetworkDriver):
         if self._system_health is None:
             raise self._unsupported(Capability.SYSTEM_HEALTH)
         return self._system_health
+
+    async def get_firewall_policies(self) -> Sequence[FirewallPolicy]:
+        if self._firewall_policies is None:
+            raise self._unsupported(Capability.FIREWALL)
+        return self._firewall_policies
+
+    async def ping(self, destination: IPv4Address | IPv6Address) -> PingResult:
+        if self._ping_results is None or destination not in self._ping_results:
+            raise self._unsupported(Capability.PING)
+        return self._ping_results[destination]
+
+    async def traceroute(self, destination: IPv4Address | IPv6Address) -> TracerouteResult:
+        if self._traceroute_results is None or destination not in self._traceroute_results:
+            raise self._unsupported(Capability.TRACEROUTE)
+        return self._traceroute_results[destination]

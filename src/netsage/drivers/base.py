@@ -2,18 +2,26 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from ipaddress import IPv4Address, IPv6Address
 
 from netsage.models import (
     VLAN,
     ArpEntry,
     Capability,
     DeviceFacts,
+    FirewallPolicy,
     Interface,
     LldpNeighbor,
     MacEntry,
+    PingResult,
     Route,
     SystemHealth,
+    TracerouteResult,
 )
+
+
+class UnsupportedCapabilityError(RuntimeError):
+    """Raised instead of simulating data for an unsupported operation."""
 
 
 class NetworkDriver(ABC):
@@ -46,3 +54,12 @@ class NetworkDriver(ABC):
 
     @abstractmethod
     async def get_system_health(self) -> SystemHealth: ...
+
+    @abstractmethod
+    async def get_firewall_policies(self) -> Sequence[FirewallPolicy]: ...
+
+    @abstractmethod
+    async def ping(self, destination: IPv4Address | IPv6Address) -> PingResult: ...
+
+    @abstractmethod
+    async def traceroute(self, destination: IPv4Address | IPv6Address) -> TracerouteResult: ...

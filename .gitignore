@@ -7,7 +7,11 @@
 /secrets*
 .venv/
 __pycache__/
+.cache/
+.uv-cache/
 .pytest_cache/
+.tmp/
+tmp-tests/
 .mypy_cache/
 .ruff_cache/
 .coverage
@@ -17,6 +21,10 @@ build/
 artifacts/
 *.egg-info/
 .projectatlas/
+# Local vendor reference material used during driver development. Keep these
+# copyrighted source artifacts out of the public repository.
+/FortiOS-*-CLI_Reference.pdf
+/FortiOS.md
 .idea/
 .vscode/
 AGENTS.md

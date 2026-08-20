@@ -1,4 +1,5 @@
 from collections.abc import Mapping, Sequence
+from ipaddress import IPv4Address, IPv6Address
 
 import pytest
 
@@ -8,6 +9,7 @@ from netsage.credentials import (
     CredentialKind,
     CredentialProvider,
     DevelopmentEnvironmentCredentialProvider,
+    EphemeralCredentialProvider,
     KeyringCredentialProvider,
     SSHAgentCredentialProvider,
 )
@@ -17,11 +19,14 @@ from netsage.models import (
     ArpEntry,
     Capability,
     DeviceFacts,
+    FirewallPolicy,
     Interface,
     LldpNeighbor,
     MacEntry,
+    PingResult,
     Route,
     SystemHealth,
+    TracerouteResult,
 )
 
 
@@ -54,6 +59,26 @@ class ExampleDriver(NetworkDriver):
     async def get_system_health(self) -> SystemHealth:
         return SystemHealth(device_id="example", status="healthy")
 
+    async def get_firewall_policies(self) -> Sequence[FirewallPolicy]:
+        return []
+
+    async def ping(self, destination: IPv4Address | IPv6Address) -> PingResult:
+        return PingResult(
+            device_id="example",
+            destination=destination,
+            packets_transmitted=1,
+            packets_received=1,
+            packet_loss_percent=0,
+        )
+
+    async def traceroute(self, destination: IPv4Address | IPv6Address) -> TracerouteResult:
+        return TracerouteResult(
+            device_id="example",
+            destination=destination,
+            hops=(),
+            reached=False,
+        )
+
 
 class ExampleAIProvider(AIProvider):
     async def investigate(
@@ -77,6 +102,7 @@ async def test_driver_contract() -> None:
     assert await driver.get_routes() == []
     assert await driver.get_lldp_neighbors() == []
     assert (await driver.get_system_health()).status == "healthy"
+    assert await driver.get_firewall_policies() == []
 
 
 @pytest.mark.asyncio
@@ -107,3 +133,16 @@ async def test_unimplemented_credential_providers_fail_closed(
 ) -> None:
     with pytest.raises(NotImplementedError):
         await provider.resolve("test-ref")
+
+
+@pytest.mark.asyncio
+async def test_ephemeral_credential_provider_resolves_only_exact_reference() -> None:
+    credential = Credential(
+        username="readonly",
+        secret="test-" + "only-value",
+        kind=CredentialKind.PASSWORD,
+    )
+    provider = EphemeralCredentialProvider("fortigate-live", credential)
+    assert await provider.resolve("fortigate-live") is credential
+    with pytest.raises(LookupError, match="Unknown ephemeral"):
+        await provider.resolve("different-device")

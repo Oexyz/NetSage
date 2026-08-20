@@ -47,15 +47,16 @@ work is represented by the following commits on `main`:
 - `86e1620 fix: type Windows installer across platforms`
 - `2f68784 fix: include credential isolation package`
 - `5ea3585 fix: normalize Windows paths consistently`
+- `57d6947 feat: establish core architecture`
 
 At the time of this handoff, local `main` matches `origin/main`, the repository is
 public, the latest GitHub Actions CI run on `main` succeeds, and no release tag or
 GitHub Release has been created yet. Do not claim downloadable release assets
 exist until a `v*` tag has successfully completed the release workflow.
 
-The local verification snapshot on 2026-08-19 is green: Ruff formatting and
-linting pass, strict mypy reports no issues in 29 source files, and pytest reports
-45 passing unit tests with 90.64% total coverage (the configured floor is 80%).
+The local verification snapshot on 2026-08-20 is green: Ruff formatting and
+linting pass, strict mypy reports no issues in 35 source files, and pytest reports
+89 passing unit tests with 89.26% total coverage (the configured floor is 80%).
 
 ### Development-machine bootstrap
 
@@ -108,13 +109,17 @@ The Typer/Rich CLI currently implements and tests:
 - `netsage -install` as an alias for per-user Windows standalone installation
 - `netsage install-path`
 - `netsage uninstall-path`
+- `netsage fortigate live-test` as an experimental, interactive, read-only
+  process-memory-only connection test
 
 `doctor` reports Python, Git, SSH, OS credential-store, and optional Docker
 availability. `setup`, `device`, and `devices` exist only as safe placeholders.
 They must not be described as functional network workflows.
 
-Version 0.1 can currently validate its local environment and exercise the
-architectural contracts; it cannot yet connect to, interrogate, or modify a real
+The FortiGate driver and interactive live-test path are implemented and
+fixture-verified. The target SSH endpoint and host-key discovery were verified
+without authentication; the authenticated live snapshot still requires a human
+to enter the password into the hidden local prompt. NetSage cannot modify a
 network device.
 
 ### Architecture contracts
@@ -123,7 +128,8 @@ The foundation has intentionally small, testable boundaries:
 
 - `NetworkDriver` is an async, vendor-neutral, read-only abstract contract with
   `get_facts`, `get_interfaces`, `get_vlans`, `get_mac_table`, `get_arp_table`,
-  `get_routes`, `get_lldp_neighbors`, and `get_system_health`.
+  `get_routes`, `get_lldp_neighbors`, `get_system_health`,
+  `get_firewall_policies`, `ping`, and `traceroute`.
 - `AIProvider` accepts only sanitized context and broker-owned `StructuredTool`
   definitions and returns a provider-neutral `AIResponse`. No concrete Codex,
   Claude, Ollama, or OpenAI-compatible provider exists yet.
@@ -134,6 +140,9 @@ The foundation has intentionally small, testable boundaries:
   `DevelopmentEnvironmentCredentialProvider` are fail-closed stubs that raise
   `NotImplementedError`. Their names describe planned boundaries, not completed
   credential retrieval.
+- `EphemeralCredentialProvider` retains one credential in process memory only
+  for a bounded operation. It must never be backed by CLI arguments, environment
+  variables, files, inventory serialization, logs, or audit events.
 - `ToolBroker` registers typed definitions, rejects generic or duplicate tools,
   validates declared arguments, inventory devices, and capabilities, applies
   Observe authorization, redacts results and audit arguments, and checks handler
@@ -149,9 +158,13 @@ The foundation has intentionally small, testable boundaries:
   patterns, private keys, token forms, and explicitly known credential values.
 - `FakeDriver` exposes only explicitly configured typed fixtures and raises for
   unsupported capabilities.
-- Vendor package placeholders exist for FortiGate/FortiOS, FortiSwitch,
-  HP/HPE/ArubaOS-Switch (`aruba_aoss`), and Aruba AOS-CX (`aruba_aoscx`). They do
-  not contain real device drivers yet.
+- The FortiOS package contains the first real read-only driver. Its fixed SSH
+  allowlist supports facts, interfaces, VLANs, ARP, routes, health, IPv4 firewall
+  policies, and policy-controlled IP-only ping/traceroute. Host-key pinning is
+  mandatory, credentials resolve only inside the trusted transport, and paged
+  output is advanced without changing the device's global console configuration.
+- FortiSwitch, HP/HPE/ArubaOS-Switch (`aruba_aoss`), and Aruba AOS-CX
+  (`aruba_aoscx`) remain driver placeholders.
 - Agent, evidence, topology, and incidents remain scaffolding only. Inventory,
   policy, and redaction now have tested Core Architecture foundations.
 
@@ -245,6 +258,7 @@ src/netsage/
   incidents/        Future incident workflows
   policies/         Future authorization/read-only policies
   security/         Future reusable security controls
+  tools/            Structured Broker adapters; currently FortiOS
 tests/unit/          CLI, contracts, broker, and Windows distribution tests
 tests/install/       Linux installer shell test
 tests/integration/   Reserved for later integration tests
@@ -327,8 +341,7 @@ Do not imply that the following exist, and do not add them incidentally:
 
 ## Next recommended milestone
 
-Implement the first read-only FortiGate connection lifecycle and
-`get_facts()` driver. Keep credential resolution inside the trusted connection
-layer, parse only synthetic sanitized fixture output, return normalized
-`DeviceFacts`, and expose the operation only through the capability-aware,
-audited Tool Broker. Do not add an AI provider in this milestone.
+Complete the authorized interactive FortiGate live snapshot and fix only
+evidence-backed compatibility issues found against that device. After live
+verification, add a typed evidence envelope before exposing FortiGate
+observations to an investigation workflow. Do not add an AI provider yet.

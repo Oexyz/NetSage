@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import shutil
 import sys
 from pathlib import Path
@@ -11,8 +12,24 @@ from rich.console import Console
 from rich.table import Table
 
 from netsage import __version__
+from netsage.credentials import (
+    Credential,
+    CredentialKind,
+    EphemeralCredentialProvider,
+)
 from netsage.distribution import install_current_executable, uninstall_current_executable
 from netsage.distribution.windows import DistributionInstallError
+from netsage.drivers.fortios import (
+    FORTIOS_CAPABILITIES,
+    FortiOSDriver,
+    FortiOSParseError,
+    FortiOSSnapshot,
+    FortiOSSSHTransport,
+    FortiOSTransportError,
+    SSHHostKeyPin,
+    discover_ssh_host_key,
+)
+from netsage.models import CredentialReference, DeviceRef, Platform
 
 app = typer.Typer(
     name="netsage",
@@ -21,6 +38,12 @@ app = typer.Typer(
     invoke_without_command=True,
 )
 console = Console()
+fortigate_app = typer.Typer(
+    name="fortigate",
+    help="Read-only FortiGate inspection and diagnostics.",
+    no_args_is_help=True,
+)
+app.add_typer(fortigate_app)
 
 
 def version_callback(value: bool) -> None:
@@ -153,6 +176,79 @@ def device() -> None:
 def devices() -> None:
     """Placeholder for inventory listing."""
     console.print("Inventory listing is not implemented yet.")
+
+
+@fortigate_app.command("live-test")
+def fortigate_live_test() -> None:
+    """Run a passive FortiGate snapshot with an in-memory password only."""
+
+    host = typer.prompt("FortiGate host")
+    port = typer.prompt("SSH port", default=22, type=int)
+    try:
+        pin = asyncio.run(discover_ssh_host_key(host, port))
+    except FortiOSTransportError as error:
+        console.print(f"[red]Host-key discovery failed:[/red] {error}")
+        raise typer.Exit(code=1) from error
+    console.print(f"SSH host key: {pin.algorithm} {pin.fingerprint}")
+    if not typer.confirm("Trust this host key for this process only?", default=False):
+        console.print("Aborted before credentials were requested.")
+        raise typer.Exit(code=1)
+
+    username = typer.prompt("Username")
+    password = typer.prompt("Password", hide_input=True)
+    console.print("Credential persistence: disabled (process memory only).")
+    try:
+        snapshot = asyncio.run(_collect_fortigate_snapshot(host, port, username, password, pin))
+    except (FortiOSTransportError, FortiOSParseError, ValueError) as error:
+        console.print(f"[red]FortiGate read-only test failed:[/red] {error}")
+        raise typer.Exit(code=1) from error
+    finally:
+        password = ""  # Minimize the lifetime of the local reference; Python cannot zero strings.
+    _print_fortigate_snapshot(snapshot)
+
+
+async def _collect_fortigate_snapshot(
+    host: str,
+    port: int,
+    username: str,
+    password: str,
+    pin: SSHHostKeyPin,
+) -> FortiOSSnapshot:
+    credential_ref = "ephemeral-fortigate-live"
+    device = DeviceRef(
+        name="fortigate-live",
+        host=host,
+        port=port,
+        platform=Platform.FORTIOS,
+        credential_ref=CredentialReference(credential_ref),
+        capabilities=FORTIOS_CAPABILITIES,
+    )
+    provider = EphemeralCredentialProvider(
+        credential_ref,
+        Credential(username=username, secret=password, kind=CredentialKind.PASSWORD),
+    )
+    transport = FortiOSSSHTransport(
+        device,
+        provider,
+        known_hosts_data=pin.known_hosts_data,
+    )
+    return await FortiOSDriver(device.name, transport).get_snapshot()
+
+
+def _print_fortigate_snapshot(snapshot: FortiOSSnapshot) -> None:
+    table = Table(title="FortiGate read-only snapshot")
+    table.add_column("Area")
+    table.add_column("Result")
+    table.add_row("Model", snapshot.facts.model)
+    table.add_row("FortiOS", snapshot.facts.os_version)
+    table.add_row("Interfaces", str(len(snapshot.interfaces)))
+    table.add_row("VLANs", str(len(snapshot.vlans)))
+    table.add_row("ARP entries", str(len(snapshot.arp_entries)))
+    table.add_row("Routes", str(len(snapshot.routes)))
+    table.add_row("Firewall policies", str(len(snapshot.firewall_policies)))
+    table.add_row("Health", snapshot.health.status.value)
+    console.print(table)
+    console.print("No configuration changes were made.")
 
 
 if __name__ == "__main__":

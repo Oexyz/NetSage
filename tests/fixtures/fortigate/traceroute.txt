@@ -1,0 +1,4 @@
+traceroute to 198.51.100.10 (198.51.100.10), 30 hops max, 3 probe packets per hop
+ 1  192.0.2.254  0.500 ms  0.600 ms  0.700 ms
+ 2  * * *
+ 3  198.51.100.10  1.200 ms  1.300 ms  1.400 ms

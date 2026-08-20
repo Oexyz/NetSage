@@ -1,6 +1,7 @@
 """Vendor-neutral, non-secret core models."""
 
 from enum import StrEnum
+from ipaddress import IPv4Address, IPv6Address
 from re import compile as compile_pattern
 from typing import Self
 
@@ -9,6 +10,7 @@ from pydantic import (
     ConfigDict,
     Field,
     IPvAnyAddress,
+    IPvAnyInterface,
     IPvAnyNetwork,
     JsonValue,
     RootModel,
@@ -62,6 +64,13 @@ class HealthStatus(StrEnum):
     UNKNOWN = "unknown"
 
 
+class FirewallAction(StrEnum):
+    ACCEPT = "accept"
+    DENY = "deny"
+    IPSEC = "ipsec"
+    UNKNOWN = "unknown"
+
+
 class DataTrust(StrEnum):
     """How downstream consumers must interpret a result payload."""
 
@@ -93,6 +102,7 @@ class DeviceRef(BaseModel):
     host: str
     platform: Platform
     credential_ref: CredentialReference
+    port: int = Field(default=22, ge=1, le=65535)
     site: str | None = None
     groups: frozenset[str] = frozenset()
     capabilities: frozenset[Capability] = frozenset()
@@ -117,6 +127,9 @@ class DeviceFacts(BaseModel):
     model: str
     os_version: str
     hostname: str | None = None
+    operation_mode: str | None = None
+    ha_mode: str | None = None
+    vdom: str | None = None
 
 
 class InterfaceErrors(BaseModel):
@@ -139,6 +152,7 @@ class Interface(BaseModel):
     description: str | None = None
     speed_mbps: int | None = Field(default=None, gt=0)
     mtu: int | None = Field(default=None, ge=576)
+    addresses: tuple[IPvAnyInterface, ...] = ()
     vlans: tuple[int, ...] = ()
     errors: InterfaceErrors = Field(default_factory=InterfaceErrors)
 
@@ -156,6 +170,7 @@ class VLAN(BaseModel):
     device_id: str
     vlan_id: int = Field(ge=1, le=4094)
     name: str | None = None
+    parent_interface: str | None = None
 
 
 class MacEntry(BaseModel):
@@ -197,7 +212,10 @@ class Route(BaseModel):
     protocol: str
     next_hop: IPvAnyAddress | None = None
     interface: str | None = None
+    distance: int | None = Field(default=None, ge=0)
     metric: int | None = Field(default=None, ge=0)
+    vrf: int = Field(default=0, ge=0)
+    selected: bool = False
 
 
 class LldpNeighbor(BaseModel):
@@ -219,7 +237,63 @@ class SystemHealth(BaseModel):
     status: HealthStatus
     cpu_percent: float | None = Field(default=None, ge=0, le=100)
     memory_percent: float | None = Field(default=None, ge=0, le=100)
+    uptime_seconds: int | None = Field(default=None, ge=0)
     observations: tuple[str, ...] = ()
+
+
+class FirewallPolicy(BaseModel):
+    """Normalized IPv4 policy; names and comments remain untrusted device data."""
+
+    model_config = ConfigDict(frozen=True)
+
+    device_id: str
+    policy_id: int = Field(ge=0)
+    name: str | None = None
+    source_interfaces: tuple[str, ...] = ()
+    destination_interfaces: tuple[str, ...] = ()
+    source_addresses: tuple[str, ...] = ()
+    destination_addresses: tuple[str, ...] = ()
+    services: tuple[str, ...] = ()
+    action: FirewallAction = FirewallAction.UNKNOWN
+    enabled: bool = True
+    nat_enabled: bool = False
+    schedule: str | None = None
+    comments: str | None = None
+
+
+class PingResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    device_id: str
+    destination: IPvAnyAddress
+    packets_transmitted: int = Field(ge=0)
+    packets_received: int = Field(ge=0)
+    packet_loss_percent: float = Field(ge=0, le=100)
+    min_ms: float | None = Field(default=None, ge=0)
+    avg_ms: float | None = Field(default=None, ge=0)
+    max_ms: float | None = Field(default=None, ge=0)
+
+    @property
+    def successful(self) -> bool:
+        return self.packets_received > 0
+
+
+class TracerouteHop(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    hop: int = Field(ge=1)
+    address: IPvAnyAddress | None = None
+    rtt_ms: tuple[float, ...] = ()
+    timed_out: bool = False
+
+
+class TracerouteResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    device_id: str
+    destination: IPv4Address | IPv6Address
+    hops: tuple[TracerouteHop, ...]
+    reached: bool
 
 
 class CommandResult(BaseModel):

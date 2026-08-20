@@ -1,0 +1,13 @@
+Codes: K - kernel, C - connected, S - static, R - RIP, B - BGP
+       O - OSPF, IA - OSPF inter area
+       * - candidate default
+
+Routing table for VRF=0
+S*      0.0.0.0/0 [10/0] via 192.0.2.254, port1, [1/0]
+C       192.0.2.0/24 is directly connected, port1
+C       198.51.100.0/24 is directly connected, VLAN30
+O       203.0.113.0/24 [110/20] via 192.0.2.2, port1, 00:10:11
+                      [110/20] via 192.0.2.3, port1, 00:10:11
+
+Routing table for VRF=2
+S       203.0.113.128/25 [10/5] via 198.51.100.2, VLAN30

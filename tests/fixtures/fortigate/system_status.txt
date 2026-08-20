@@ -1,0 +1,6 @@
+Version: FortiGate-VM64 v7.4.5,build2702,240813 (Mature)
+Hostname: fortigate-lab
+Operation Mode: NAT
+Current HA mode: standalone
+Current virtual domain: root
+System time: Tue Aug 19 12:00:00 2026

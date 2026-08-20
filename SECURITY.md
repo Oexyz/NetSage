@@ -23,6 +23,14 @@ banners, or logs into instructions. Audit events store safe arguments and bounde
 status categories; they intentionally omit raw tool output and arbitrary exception
 messages. The current audit sink is in-memory only and is not persistent.
 
+The FortiOS live-test path discovers the SSH server key before asking for a
+credential and pins that key in memory after explicit user confirmation. Its
+password provider is process-memory-only: credentials cannot be supplied through
+command-line arguments or environment variables and are not written to files,
+keyrings, inventory, raw-output captures, logs, or audit events. Python cannot
+guarantee in-place zeroing of immutable strings, so this path minimizes their
+lifetime and is intended only for bounded authorized testing.
+
 ## Mandatory principles
 
 1. All network access is read-only by default.
