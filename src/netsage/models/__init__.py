@@ -1,6 +1,8 @@
 """Shared validated data models."""
 
 from netsage.models.core import (
+    HEALTH_DEGRADED_THRESHOLD_PERCENT,
+    HEALTH_UNHEALTHY_THRESHOLD_PERCENT,
     VLAN,
     ArpEntry,
     Capability,
@@ -26,6 +28,8 @@ from netsage.models.core import (
 )
 
 __all__ = [
+    "HEALTH_DEGRADED_THRESHOLD_PERCENT",
+    "HEALTH_UNHEALTHY_THRESHOLD_PERCENT",
     "VLAN",
     "ArpEntry",
     "Capability",

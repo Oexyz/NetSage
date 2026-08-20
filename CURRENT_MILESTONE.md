@@ -1,79 +1,98 @@
-# Current Milestone: FortiGate Read-Only Driver
+# Current Milestone: Evidence & Deterministic Investigation Foundation
 
-Status: complete. The implementation is fixture-verified and its passive snapshot
-has been live-verified against an authorized FortiOS 7.2.13 device.
+Status: complete. The typed evidence pipeline and deterministic FortiOS
+investigations are unit-, integration-, fixture-, and live-verified against an
+authorized FortiOS 7.2.13 device without persisting credentials or raw output.
 
 This file defines current implementation scope. Long-term architecture and
 security requirements remain authoritative in `PROJECT_SPEC.md`.
 
 ## Goals
 
-- implement a trusted FortiOS SSH connection lifecycle with mandatory host-key
-  validation;
-- resolve credentials only inside the transport boundary;
-- support a process-memory-only credential provider for bounded live tests;
-- expose no raw command or generic SSH surface;
-- normalize FortiGate facts, interfaces, VLAN subinterfaces, ARP entries, active
-  routes, system health, and IPv4 firewall policies;
-- implement fixed, IP-only ping and traceroute diagnostics;
-- keep diagnostics denied unless the Observe policy explicitly allows them;
-- redact known credentials and secret patterns before output reaches parsers;
-- provide a single-connection passive snapshot for live verification;
-- provide synthetic sanitized FortiGate fixtures and deterministic tests;
-- expose operations through structured, capability-aware Broker tools;
-- add an interactive `netsage fortigate live-test` command which never persists
-  credentials or raw output.
+- introduce a typed, vendor-neutral evidence envelope;
+- preserve source provenance with evidence identifiers and timezone-aware UTC
+  timestamps;
+- retain explicit `UNTRUSTED_DEVICE_DATA` marking after normalization;
+- retain typed normalized payloads for the implemented FortiOS capabilities;
+- convert only Broker-validated, redacted `CommandResult` values into evidence;
+- provide a secret-rejecting in-memory evidence store;
+- model deterministic investigations, findings, optional diagnoses, missing
+  evidence, and human-readable reports;
+- implement qualitative diagnosis strength using only `CONFIRMED`, `STRONG`,
+  `PROBABLE`, and `INSUFFICIENT`;
+- implement deterministic FortiOS investigations for system health, active IPv4
+  default route, and interface state;
+- distinguish a successfully observed empty state from collection failure;
+- isolate tool failures so partial evidence can still produce an honest report;
+- keep every device collection routed through the Tool Broker;
+- add thorough unit, security, and hardware-free end-to-end tests;
+- provide a minimal interactive FortiGate investigation CLI without an AI
+  dependency or a second credential/SSH stack.
 
-## Supported capabilities
+## Supported evidence inputs
 
-| Capability | Status | FortiOS command |
-|---|---|---|
-| Facts | Implemented | `get system status` |
-| Interfaces | Implemented | `show system interface`, `get system interface physical` |
-| VLANs | Implemented | Parsed from system interface configuration |
-| ARP | Implemented | `get system arp` |
-| Routes | Implemented | `get router info routing-table all` |
-| System health | Implemented | `get system performance status` |
-| IPv4 firewall policies | Implemented | `show firewall policy` |
-| Ping | Policy-controlled | `execute ping <validated-IP>` |
-| Traceroute | Policy-controlled | `execute traceroute <validated-IP>` |
-| MAC table | Unsupported | Not simulated |
-| LLDP | Unsupported | Not simulated |
+- device facts;
+- interfaces;
+- VLANs;
+- ARP entries;
+- routes;
+- system health;
+- IPv4 firewall policies;
+- policy-controlled ping and traceroute results when explicitly authorized.
+
+No new FortiOS command is introduced by this milestone.
 
 ## Non-goals
 
-- no configuration changes or automatic remediation;
-- no unrestricted SSH, shell, CLI string, or command template supplied by users
-  or AI;
-- no credential persistence in files, environment variables, shell history,
-  inventory, logs, evidence, or audit events;
-- no REST transport or API-token support in this milestone;
-- no VPN, BGP, OSPF, session-table, or log collection;
-- no FortiSwitch or FortiLink implementation;
-- no discovery, topology, investigation engine, Web UI, or MCP server;
-- no persistent inventory or audit storage.
+- no AI provider, LLM planning, prompt engine, or external AI dependency;
+- no FortiSwitch, HP ProCurve, ArubaOS-Switch, Aruba AOS-CX, Cisco, Arista,
+  Juniper, MikroTik, or other new hardware driver;
+- no network discovery, LLDP topology engine, multi-device MAC trace, or
+  multi-device VLAN trace;
+- no NetSage Probe or vantage-point deployment;
+- no end-to-end connectivity simulation without a valid vantage point;
+- no complex FortiGate firewall-policy simulation;
+- no Web UI, FastAPI service, MCP server, Node.js, npm, or frontend;
+- no Codex, Claude, Ollama, OpenAI, or other concrete AI provider;
+- no automatic remediation, configuration operation, or generic SSH/CLI command;
+- no persistent database, ORM, Redis, database cluster, or persistent raw capture;
+- no enterprise AAA or credential-store implementation;
+- no generic rule engine, workflow engine, or agent framework dependency;
+- no topology, discovery, probes, additional vendors, or later roadmap work.
 
 ## Acceptance criteria
 
-- the server host key is discovered without authentication and explicitly pinned
-  before a credential is sent;
-- authentication errors and command failures contain no raw device output or
-  credential material;
-- every command is rendered from a closed enum and typed arguments;
-- live passwords exist only in process memory for the bounded operation;
-- the passive snapshot uses one SSH connection and makes no configuration change;
-- paged FortiOS output is collected without changing the global console output mode;
-- fixture output is synthetic and contains no real infrastructure data;
-- parser incompatibility fails visibly instead of returning fabricated data;
-- Broker tools validate devices, capabilities, arguments, authorization, and
-  result identity;
-- Ruff, strict mypy, pre-commit, and pytest pass;
-- an authorized live snapshot succeeds against a real FortiGate before the
-  milestone is declared complete.
+- evidence payloads remain normalized and typed rather than raw CLI text;
+- evidence contains no credential reference, username, password, token, private
+  key, SNMP community, auth header, or raw transport material;
+- evidence provenance contains only safe device, platform, capability, driver,
+  collection-method, and structured-tool metadata;
+- every evidence timestamp is timezone-aware and normalized to UTC;
+- evidence and investigation models are immutable snapshots where appropriate;
+- evidence IDs are unique and diagnoses reference evidence by ID;
+- the evidence store accepts only validated, already sanitized envelopes;
+- prompt-injection-like device strings remain inert untrusted data;
+- audit and evidence remain separate domains;
+- route collection failure yields `INSUFFICIENT`, while a successfully collected
+  route table with no active IPv4 default route yields a confirmed finding;
+- interface analysis reports observed administrative and operational state without
+  inventing a cable or hardware cause;
+- high CPU and memory are findings, not automatically root-cause diagnoses;
+- FakeDriver-to-Broker-to-Evidence-to-Investigation-to-Report and FortiOS fixture
+  pipelines are tested end to end;
+- the existing `netsage fortigate live-test` continues to work;
+- Ruff formatting and linting, strict mypy, pytest, pre-commit, and CLI smoke tests
+  pass without lowering the coverage floor;
+- no real infrastructure data or credentials are committed.
 
-## Next milestone candidate
+## Completed previous milestone
 
-After live verification, add a typed evidence envelope and expose the first
-FortiGate observations to a deterministic investigation workflow. Do not add an
-AI provider until evidence provenance and persistent audit requirements are
-defined.
+The FortiGate read-only driver is implemented, fixture-verified, and its passive
+snapshot was live-verified against an authorized FortiOS 7.2.13 device. FortiGate
+support remains experimental and is not described as production-ready.
+
+## Next milestone
+
+Not selected. Stop after completing and verifying this milestone; recommend the
+next step without beginning AI providers, additional vendors, discovery,
+topology, probes, or configuration work.

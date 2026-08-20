@@ -7,6 +7,8 @@ import shlex
 from ipaddress import IPv4Interface, IPv6Interface, ip_address, ip_interface, ip_network
 
 from netsage.models import (
+    HEALTH_DEGRADED_THRESHOLD_PERCENT,
+    HEALTH_UNHEALTHY_THRESHOLD_PERCENT,
     VLAN,
     ArpEntry,
     DeviceFacts,
@@ -245,9 +247,15 @@ def parse_system_health(device_id: str, output: str) -> SystemHealth:
     cpu_percent = 100.0 - float(idle_match.group(1))
     memory_percent = float(memory_match.group(1))
     status = HealthStatus.HEALTHY
-    if cpu_percent >= 90 or memory_percent >= 90:
+    if (
+        cpu_percent >= HEALTH_UNHEALTHY_THRESHOLD_PERCENT
+        or memory_percent >= HEALTH_UNHEALTHY_THRESHOLD_PERCENT
+    ):
         status = HealthStatus.UNHEALTHY
-    elif cpu_percent >= 75 or memory_percent >= 75:
+    elif (
+        cpu_percent >= HEALTH_DEGRADED_THRESHOLD_PERCENT
+        or memory_percent >= HEALTH_DEGRADED_THRESHOLD_PERCENT
+    ):
         status = HealthStatus.DEGRADED
     uptime_match = re.search(r"(?m)^Uptime:\s*(.+)$", output)
     uptime_text = uptime_match.group(1).strip() if uptime_match else None

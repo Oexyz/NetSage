@@ -12,6 +12,7 @@ from rich.console import Console
 from rich.table import Table
 
 from netsage import __version__
+from netsage.broker import ToolBroker
 from netsage.credentials import (
     Credential,
     CredentialKind,
@@ -29,7 +30,16 @@ from netsage.drivers.fortios import (
     SSHHostKeyPin,
     discover_ssh_host_key,
 )
+from netsage.evidence import EvidenceCollector, EvidenceFactory, InMemoryEvidenceStore
+from netsage.inventory import Inventory
+from netsage.investigations import (
+    FortiOSInvestigator,
+    InvestigationReport,
+    render_investigation_report,
+)
 from netsage.models import CredentialReference, DeviceRef, Platform
+from netsage.security import SecretRedactor
+from netsage.tools import FortiOSToolSet
 
 app = typer.Typer(
     name="netsage",
@@ -182,6 +192,35 @@ def devices() -> None:
 def fortigate_live_test() -> None:
     """Run a passive FortiGate snapshot with an in-memory password only."""
 
+    host, port, username, password, pin = _prompt_fortigate_access()
+    try:
+        snapshot = asyncio.run(_collect_fortigate_snapshot(host, port, username, password, pin))
+    except (FortiOSTransportError, FortiOSParseError, ValueError) as error:
+        console.print(f"[red]FortiGate read-only test failed:[/red] {error}")
+        raise typer.Exit(code=1) from error
+    finally:
+        password = ""  # Minimize the lifetime of the local reference; Python cannot zero strings.
+    _print_fortigate_snapshot(snapshot)
+
+
+@fortigate_app.command("investigate")
+def fortigate_investigate() -> None:
+    """Run an evidence-backed deterministic FortiGate health investigation."""
+
+    host, port, username, password, pin = _prompt_fortigate_access()
+    try:
+        report = asyncio.run(
+            _collect_fortigate_health_investigation(host, port, username, password, pin)
+        )
+    except (FortiOSTransportError, FortiOSParseError, ValueError) as error:
+        console.print(f"[red]FortiGate investigation failed:[/red] {error}")
+        raise typer.Exit(code=1) from error
+    finally:
+        password = ""  # Minimize the lifetime of the local reference; Python cannot zero strings.
+    console.print(render_investigation_report(report))
+
+
+def _prompt_fortigate_access() -> tuple[str, int, str, str, SSHHostKeyPin]:
     host = typer.prompt("FortiGate host")
     port = typer.prompt("SSH port", default=22, type=int)
     try:
@@ -197,14 +236,7 @@ def fortigate_live_test() -> None:
     username = typer.prompt("Username")
     password = typer.prompt("Password", hide_input=True)
     console.print("Credential persistence: disabled (process memory only).")
-    try:
-        snapshot = asyncio.run(_collect_fortigate_snapshot(host, port, username, password, pin))
-    except (FortiOSTransportError, FortiOSParseError, ValueError) as error:
-        console.print(f"[red]FortiGate read-only test failed:[/red] {error}")
-        raise typer.Exit(code=1) from error
-    finally:
-        password = ""  # Minimize the lifetime of the local reference; Python cannot zero strings.
-    _print_fortigate_snapshot(snapshot)
+    return host, port, username, password, pin
 
 
 async def _collect_fortigate_snapshot(
@@ -214,6 +246,17 @@ async def _collect_fortigate_snapshot(
     password: str,
     pin: SSHHostKeyPin,
 ) -> FortiOSSnapshot:
+    _device, driver = _build_fortigate_driver(host, port, username, password, pin)
+    return await driver.get_snapshot()
+
+
+def _build_fortigate_driver(
+    host: str,
+    port: int,
+    username: str,
+    password: str,
+    pin: SSHHostKeyPin,
+) -> tuple[DeviceRef, FortiOSDriver]:
     credential_ref = "ephemeral-fortigate-live"
     device = DeviceRef(
         name="fortigate-live",
@@ -232,7 +275,36 @@ async def _collect_fortigate_snapshot(
         provider,
         known_hosts_data=pin.known_hosts_data,
     )
-    return await FortiOSDriver(device.name, transport).get_snapshot()
+    return device, FortiOSDriver(device.name, transport)
+
+
+async def _collect_fortigate_health_investigation(
+    host: str,
+    port: int,
+    username: str,
+    password: str,
+    pin: SSHHostKeyPin,
+) -> InvestigationReport:
+    device, driver = _build_fortigate_driver(host, port, username, password, pin)
+    inventory = Inventory(devices={device.name: device})
+    redactor = SecretRedactor(known_secrets=(password,))
+    broker = ToolBroker(
+        inventory=inventory,
+        redactor=redactor,
+        user="local-cli",
+        ai_provider=None,
+    )
+    FortiOSToolSet({device.name: driver}).register(broker)
+    store = InMemoryEvidenceStore(redactor=redactor)
+    collector = EvidenceCollector(
+        broker=broker,
+        inventory=inventory,
+        factory=EvidenceFactory(redactor=redactor),
+        store=store,
+        driver="FortiOSDriver",
+    )
+    investigator = FortiOSInvestigator(collector=collector, redactor=redactor)
+    return await investigator.investigate_health(device.name)
 
 
 def _print_fortigate_snapshot(snapshot: FortiOSSnapshot) -> None:

@@ -21,6 +21,9 @@ from pydantic import (
 _REFERENCE_PATTERN = compile_pattern(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 _MAC_PATTERN = compile_pattern(r"^(?:[0-9a-f]{2}:){5}[0-9a-f]{2}$")
 
+HEALTH_DEGRADED_THRESHOLD_PERCENT = 75.0
+HEALTH_UNHEALTHY_THRESHOLD_PERCENT = 90.0
+
 
 class Capability(StrEnum):
     """A concrete operation family implemented by a device driver."""

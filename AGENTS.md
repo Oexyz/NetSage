@@ -49,6 +49,7 @@ work is represented by the following commits on `main`:
 - `5ea3585 fix: normalize Windows paths consistently`
 - `57d6947 feat: establish core architecture`
 - `d3f9fc6 feat: add FortiOS read-only driver`
+- `5a57ce3 fix: support FortiOS performance memory totals`
 
 At the time of this handoff, local `main` matches `origin/main`, the repository is
 public, the latest GitHub Actions CI run on `main` succeeds, and no release tag or
@@ -56,8 +57,8 @@ GitHub Release has been created yet. Do not claim downloadable release assets
 exist until a `v*` tag has successfully completed the release workflow.
 
 The local verification snapshot on 2026-08-20 is green: Ruff formatting and
-linting pass, strict mypy reports no issues in 35 source files, and pytest reports
-90 passing unit tests with 89.28% total coverage (the configured floor is 80%).
+linting pass, strict mypy reports no issues in 44 source files, and pytest reports
+117 passing tests with 90.12% total coverage (the configured floor is 80%).
 
 ### Development-machine bootstrap
 
@@ -112,6 +113,8 @@ The Typer/Rich CLI currently implements and tests:
 - `netsage uninstall-path`
 - `netsage fortigate live-test` as an experimental, interactive, read-only
   process-memory-only connection test
+- `netsage fortigate investigate` as an evidence-backed deterministic health
+  investigation using the same secure connection flow
 
 `doctor` reports Python, Git, SSH, OS credential-store, and optional Docker
 availability. `setup`, `device`, and `devices` exist only as safe placeholders.
@@ -165,8 +168,17 @@ The foundation has intentionally small, testable boundaries:
   output is advanced without changing the device's global console configuration.
 - FortiSwitch, HP/HPE/ArubaOS-Switch (`aruba_aoss`), and Aruba AOS-CX
   (`aruba_aoscx`) remain driver placeholders.
-- Agent, evidence, topology, and incidents remain scaffolding only. Inventory,
-  policy, and redaction now have tested Core Architecture foundations.
+- `EvidenceEnvelope` retains typed normalized payloads, UTC timestamps, explicit
+  untrusted-data marking, UUID references, and non-secret provenance. Evidence is
+  created only from Broker results and stored in a secret-rejecting in-memory
+  store; persistence remains future work.
+- The deterministic investigation domain supports FortiOS health, active IPv4
+  default-route, and interface-state workflows with findings, qualitative
+  diagnoses, partial-evidence handling, and AI-independent reports. The complete
+  health-investigation CLI was live-verified against an authorized FortiOS 7.2.13
+  device without persisting credentials, evidence, or raw output.
+- Agent, topology, and incidents remain scaffolding only. No concrete AI provider
+  or AI investigation runtime exists.
 
 ### Standalone distribution
 
@@ -202,6 +214,8 @@ The foundation has intentionally small, testable boundaries:
 - `SECURITY.md` records trust boundaries, the ten mandatory security principles,
   and the security-reporting contact.
 - `CONTRIBUTING.md` contains the contributor gates and standalone build commands.
+- `docs/evidence.md` and `docs/investigations.md` document the implemented typed
+  evidence and deterministic analysis boundaries.
 - `examples/inventory.example.yaml` uses documentation-only `192.0.2.0/24`
   addresses and opaque credential references. Never replace these with real
   infrastructure data.
@@ -252,7 +266,8 @@ src/netsage/
   credentials/      Credential-isolation contracts and fail-closed stubs
   models/           Validated non-secret device and command-result models
   agent/            Future investigation orchestration
-  evidence/         Future normalization and redaction
+  evidence/         Typed Broker-result evidence, provenance, and in-memory storage
+  investigations/   Deterministic evidence-backed workflows and reports
   inventory/        Future inventory loading and validation
   topology/         Future topology models
   incidents/        Future incident workflows
@@ -341,6 +356,7 @@ Do not imply that the following exist, and do not add them incidentally:
 
 ## Next recommended milestone
 
-Add a typed evidence envelope before exposing FortiGate observations to a
-deterministic investigation workflow. Preserve source provenance, untrusted-data
-marking, and secret-free audit boundaries. Do not add an AI provider yet.
+Not selected. Complete and review the Evidence & Deterministic Investigation
+Foundation before choosing another milestone. Do not automatically begin AI
+providers, additional vendors, discovery, topology, probes, or configuration
+work.

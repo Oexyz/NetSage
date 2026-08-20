@@ -23,6 +23,14 @@ banners, or logs into instructions. Audit events store safe arguments and bounde
 status categories; they intentionally omit raw tool output and arbitrary exception
 messages. The current audit sink is in-memory only and is not persistent.
 
+Evidence is created only from Broker-validated `CommandResult` objects. The
+factory reuses `SecretRedactor`, retains typed normalized payloads and explicit
+`UNTRUSTED_DEVICE_DATA`, and records only non-secret provenance. The in-memory
+evidence store rejects values which still contain a recognized or explicitly
+known secret. Collection failures record bounded categories rather than raw
+exception messages. Evidence is not an audit log and contains no credential
+reference or transport secret.
+
 The FortiOS live-test path discovers the SSH server key before asking for a
 credential and pins that key in memory after explicit user confirmation. Its
 password provider is process-memory-only: credentials cannot be supplied through

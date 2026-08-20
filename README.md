@@ -31,8 +31,9 @@ shell, password, private-key, or API-token access.
 | Supported | Core architecture | Typed network models, capabilities, validated inventory, Observe policy, redaction, in-memory audit events, and fake driver |
 | Supported | Core contracts | Network drivers, AI providers, credential isolation, and structured broker tools |
 | Experimental | FortiGate | Fixture- and live-verified read-only SSH facts, interfaces, VLANs, ARP, routes, health, firewall policies, ping, and traceroute |
+| Experimental | Evidence and deterministic investigations | Typed provenance, in-memory evidence, partial-failure handling, and FortiGate analysis without AI |
 | In development | Network platforms | FortiSwitch, HP/HPE/ArubaOS-Switch, and Aruba AOS-CX |
-| In development | Security pipeline | Persistent audit storage and evidence collection |
+| In development | Security pipeline | Persistent audit and evidence storage |
 | Planned | AI providers | Codex, Anthropic Claude, Ollama, and OpenAI-compatible APIs |
 | Planned | Additional vendors | Cisco, Arista, Juniper, and others |
 
@@ -144,6 +145,17 @@ It discovers and displays the SSH host-key fingerprint before requesting a
 credential, requires explicit process-local trust, collects one passive snapshot,
 and persists neither credentials nor raw device output. See [driver details](docs/drivers.md).
 
+The deterministic investigation CLI uses the same secure connection flow and
+collects typed evidence exclusively through the Tool Broker:
+
+```powershell
+uv run netsage fortigate investigate
+```
+
+It produces findings and an optional qualitative diagnosis without an AI
+provider. See the [evidence model](docs/evidence.md) and
+[investigation semantics](docs/investigations.md).
+
 ## Why the foundation is auditable
 
 | Component | Responsibility | AI receives secrets? |
@@ -171,7 +183,7 @@ AI-agent implementation at this stage.
 - Ruff, mypy, pytest, pre-commit, and GitHub Actions
 - Self-contained Windows/Linux release builds and verified user-level installers
 
-### FortiGate read-only driver — current
+### FortiGate read-only driver — complete, experimental
 
 - Host-key-pinned AsyncSSH connection lifecycle
 - Prompt-aware collection of paged FortiOS output without changing console settings
@@ -179,6 +191,14 @@ AI-agent implementation at this stage.
 - Policy-controlled, IP-only ping and traceroute
 - Credential resolution exclusively inside the trusted connection layer
 - Capability-aware Broker tools and sanitized synthetic fixtures
+
+### Evidence and deterministic investigation — current milestone, complete
+
+- Typed evidence envelopes with UTC timestamps and non-secret provenance
+- Explicit untrusted-data marking and a secret-rejecting in-memory store
+- Deterministic FortiGate health, active-default-route, and interface-state checks
+- Partial evidence and `INSUFFICIENT` reports when collection fails
+- Human-readable reports with no AI dependency
 
 ### Vendor and provider expansion — planned
 
