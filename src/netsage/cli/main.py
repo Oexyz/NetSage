@@ -13,6 +13,13 @@ from rich.table import Table
 
 from netsage import __version__
 from netsage.broker import ToolBroker
+from netsage.cli.state_commands import (
+    credentials_app,
+    device_app,
+    investigate_device,
+    list_devices,
+    setup_state,
+)
 from netsage.credentials import (
     Credential,
     CredentialKind,
@@ -54,6 +61,8 @@ fortigate_app = typer.Typer(
     no_args_is_help=True,
 )
 app.add_typer(fortigate_app)
+app.add_typer(credentials_app)
+app.add_typer(device_app)
 
 
 def version_callback(value: bool) -> None:
@@ -123,8 +132,8 @@ def _credential_store_status() -> tuple[str, str]:
         backend = keyring.get_keyring()
         if backend.priority > 0:
             return "OK", backend.name
-    except (ImportError, RuntimeError):
-        pass
+    except Exception:
+        return "UNAVAILABLE", "no usable OS keyring backend"
     return "UNAVAILABLE", "no usable OS keyring backend"
 
 
@@ -172,20 +181,20 @@ def uninstall_path() -> None:
 
 @app.command()
 def setup() -> None:
-    """Show guidance for future local setup workflows."""
-    console.print("Interactive setup is planned; no credentials were changed.")
-
-
-@app.command()
-def device() -> None:
-    """Placeholder for read-only single-device inspection."""
-    console.print("Device inspection is not implemented yet.")
+    """Initialize secure, versioned, non-secret local state."""
+    setup_state()
 
 
 @app.command()
 def devices() -> None:
-    """Placeholder for inventory listing."""
-    console.print("Inventory listing is not implemented yet.")
+    """List persistent device metadata without connecting."""
+    list_devices()
+
+
+@app.command()
+def investigate(device_id: str) -> None:
+    """Run a deterministic investigation for a stored logical Device ID."""
+    investigate_device(device_id)
 
 
 @fortigate_app.command("live-test")

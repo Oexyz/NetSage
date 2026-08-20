@@ -11,11 +11,34 @@ capability, authorization policy, and result identity before returning redacted,
 structured device data. The AI cannot invoke SSH, arbitrary shell commands, or
 credential APIs.
 
-Credentials are resolved by a trusted connection layer using an OS keychain, SSH
-agent, or an explicitly development-only provider. Those providers remain
-fail-closed stubs until their own milestones. Passwords, SSH private keys, API
-tokens, SNMP communities, and AAA shared secrets must never enter prompts, AI
-context, logs, evidence, audit events, or tool results.
+Credentials are resolved by a trusted connection layer. Password profiles use the
+operating-system keyring; SSH-agent and development-environment providers remain
+fail-closed stubs. Passwords, SSH private keys, API tokens, SNMP communities, and
+AAA shared secrets must never enter prompts, AI context, state files, logs,
+evidence, audit events, or tool results.
+
+## Persistent local state
+
+NetSage stores only non-secret, schema-versioned application settings, Inventory,
+credential-profile metadata, and SSH host fingerprints under the current user's
+platform-appropriate configuration directory. State writes use restrictive
+same-directory temporary files, fsync, and atomic replacement. Invalid YAML and
+unknown schema versions fail without modifying the file.
+
+Credential profiles contain provider, kind, and username metadata. The username
+is treated as operational metadata; the password is a separate runtime
+`Credential` stored under keyring service `NetSage`. List and show operations do
+not resolve it. If the OS backend is unavailable, NetSage fails closed and never
+falls back to plaintext YAML, environment variables, or command-line flags.
+
+## SSH host identity
+
+Persistent SSH trust records contain only logical trust ID, host, port, public-key
+algorithm, and SHA-256 fingerprint. Before authentication, NetSage rediscovers the
+current public host key without sending a credential, compares it to persistent
+trust, and uses the matching in-memory public key as AsyncSSH pinning material.
+A changed key aborts; it is never silently replaced. Rotation requires the
+separate `device trust-reset` workflow and explicit confirmation.
 
 Tool results are explicitly marked as untrusted device data. Redaction removes
 known secret fields and patterns, but it does not turn hostnames, descriptions,

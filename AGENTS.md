@@ -50,6 +50,7 @@ work is represented by the following commits on `main`:
 - `57d6947 feat: establish core architecture`
 - `d3f9fc6 feat: add FortiOS read-only driver`
 - `5a57ce3 fix: support FortiOS performance memory totals`
+- `88ae210 feat: add deterministic evidence investigations`
 
 At the time of this handoff, local `main` matches `origin/main`, the repository is
 public, the latest GitHub Actions CI run on `main` succeeds, and no release tag or
@@ -57,8 +58,8 @@ GitHub Release has been created yet. Do not claim downloadable release assets
 exist until a `v*` tag has successfully completed the release workflow.
 
 The local verification snapshot on 2026-08-20 is green: Ruff formatting and
-linting pass, strict mypy reports no issues in 44 source files, and pytest reports
-117 passing tests with 90.12% total coverage (the configured floor is 80%).
+linting pass, strict mypy reports no issues in 60 source files, and pytest reports
+147 passing tests with 88.82% total coverage (the configured floor is 80%).
 
 ### Development-machine bootstrap
 
@@ -115,15 +116,25 @@ The Typer/Rich CLI currently implements and tests:
   process-memory-only connection test
 - `netsage fortigate investigate` as an evidence-backed deterministic health
   investigation using the same secure connection flow
+- `netsage setup`
+- `netsage credentials add|list|show|remove`
+- `netsage device add|show|test|remove|trust-reset`
+- `netsage devices`
+- `netsage investigate DEVICE`
 
 `doctor` reports Python, Git, SSH, OS credential-store, and optional Docker
-availability. `setup`, `device`, and `devices` exist only as safe placeholders.
-They must not be described as functional network workflows.
+availability. Local state, credential metadata, SSH trust, and FortiOS Device-ID
+workflows are functional but experimental.
 
 The FortiGate driver and interactive live-test path are implemented,
 fixture-verified, and live-verified against an authorized FortiOS 7.2.13 device.
 The password was entered through the hidden local prompt and was not persisted.
 NetSage cannot modify a network device.
+
+The complete persistent workflow (`setup`, keyring credential, Device add/test,
+and stored investigation) is also live-verified. Real connection metadata exists
+only in the user's local state; no production values or raw captures belong in
+the repository.
 
 ### Architecture contracts
 
@@ -139,10 +150,11 @@ The foundation has intentionally small, testable boundaries:
 - `CredentialProvider` resolves opaque credential references inside the trusted
   connection boundary. `Credential` uses `repr=False`, and its values must never
   cross into prompts, logs, evidence, or tool results.
-- `KeyringCredentialProvider`, `SSHAgentCredentialProvider`, and
-  `DevelopmentEnvironmentCredentialProvider` are fail-closed stubs that raise
-  `NotImplementedError`. Their names describe planned boundaries, not completed
-  credential retrieval.
+- `KeyringCredentialProvider` combines non-secret profile metadata with a password
+  retrieved under keyring service `NetSage`. It fails closed when the backend or
+  secret is unavailable and has no plaintext fallback.
+- `SSHAgentCredentialProvider` and `DevelopmentEnvironmentCredentialProvider`
+  remain fail-closed stubs.
 - `EphemeralCredentialProvider` retains one credential in process memory only
   for a bounded operation. It must never be backed by CLI arguments, environment
   variables, files, inventory serialization, logs, or audit events.
@@ -179,6 +191,12 @@ The foundation has intentionally small, testable boundaries:
   device without persisting credentials, evidence, or raw output.
 - Agent, topology, and incidents remain scaffolding only. No concrete AI provider
   or AI investigation runtime exists.
+- Local state uses four schema-versioned YAML documents for settings, Inventory,
+  credential metadata, and SSH fingerprints. Atomic writers never persist secret
+  material; Evidence, Audit, and Investigations remain in-memory.
+- FortiOS onboarding verifies an unauthenticated discovered host key before
+  keyring resolution/authentication, rejects changes, and persists a Device only
+  after read-only facts succeed.
 
 ### Standalone distribution
 
@@ -216,6 +234,8 @@ The foundation has intentionally small, testable boundaries:
 - `CONTRIBUTING.md` contains the contributor gates and standalone build commands.
 - `docs/evidence.md` and `docs/investigations.md` document the implemented typed
   evidence and deterministic analysis boundaries.
+- `docs/local-state.md`, `docs/credentials.md`, and
+  `docs/device-onboarding.md` document persistent state and onboarding.
 - `examples/inventory.example.yaml` uses documentation-only `192.0.2.0/24`
   addresses and opaque credential references. Never replace these with real
   infrastructure data.
@@ -263,12 +283,14 @@ src/netsage/
   drivers/          Vendor-neutral contract and vendor package placeholders
   ai/               Provider-neutral AI contract and future providers
   broker/           Allowlisted structured tool dispatch
-  credentials/      Credential-isolation contracts and fail-closed stubs
+  credentials/      Profiles, OS-keyring passwords, and isolation contracts
   models/           Validated non-secret device and command-result models
   agent/            Future investigation orchestration
   evidence/         Typed Broker-result evidence, provenance, and in-memory storage
   investigations/   Deterministic evidence-backed workflows and reports
-  inventory/        Future inventory loading and validation
+  inventory/        Validated Inventory and atomic YAML persistence
+  onboarding/       FortiOS Device-ID runtime, readiness, and CRUD workflows
+  state/            Platform paths, atomic YAML, settings, and SSH trust
   topology/         Future topology models
   incidents/        Future incident workflows
   policies/         Future authorization/read-only policies
@@ -356,7 +378,7 @@ Do not imply that the following exist, and do not add them incidentally:
 
 ## Next recommended milestone
 
-Not selected. Complete and review the Evidence & Deterministic Investigation
+Not selected. Complete and review the Secure Local State & Device Onboarding
 Foundation before choosing another milestone. Do not automatically begin AI
-providers, additional vendors, discovery, topology, probes, or configuration
-work.
+providers, additional vendors, discovery, topology, probes, persistent
+Evidence/Audit, or configuration work.

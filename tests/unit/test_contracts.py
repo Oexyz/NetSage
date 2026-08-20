@@ -10,7 +10,6 @@ from netsage.credentials import (
     CredentialProvider,
     DevelopmentEnvironmentCredentialProvider,
     EphemeralCredentialProvider,
-    KeyringCredentialProvider,
     SSHAgentCredentialProvider,
 )
 from netsage.drivers import NetworkDriver
@@ -123,7 +122,6 @@ def test_credential_repr_does_not_expose_secret() -> None:
 @pytest.mark.parametrize(
     "provider",
     [
-        KeyringCredentialProvider(),
         SSHAgentCredentialProvider(),
         DevelopmentEnvironmentCredentialProvider(),
     ],

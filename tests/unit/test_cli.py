@@ -7,6 +7,7 @@ from typer.testing import CliRunner
 
 from netsage import __version__
 from netsage.cli import main as main_module
+from netsage.cli import state_commands
 from netsage.cli.main import app
 from netsage.distribution import InstallResult, UninstallResult
 from netsage.drivers.fortios import FortiOSSnapshot, SSHHostKeyPin
@@ -17,6 +18,7 @@ from netsage.investigations import (
     InvestigationStatus,
 )
 from netsage.models import DeviceFacts, HealthStatus, SystemHealth
+from netsage.state import LocalState, StatePaths
 
 runner = CliRunner()
 
@@ -30,7 +32,15 @@ def test_version() -> None:
 def test_help_lists_core_commands() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    for command in ("setup", "device", "devices", "doctor", "fortigate"):
+    for command in (
+        "setup",
+        "device",
+        "devices",
+        "credentials",
+        "investigate",
+        "doctor",
+        "fortigate",
+    ):
         assert command in result.stdout
 
 
@@ -41,16 +51,25 @@ def test_doctor() -> None:
     assert "Credential Store" in result.stdout
 
 
-def test_safe_placeholder_commands() -> None:
-    expected = {
-        "setup": "no credentials were changed",
-        "device": "not implemented",
-        "devices": "not implemented",
-    }
-    for command, message in expected.items():
-        result = runner.invoke(app, [command])
-        assert result.exit_code == 0
-        assert message in result.stdout
+def test_setup_and_empty_device_list_use_isolated_state(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    state = LocalState(StatePaths.from_root(tmp_path / "state"))
+
+    def isolated_state() -> LocalState:
+        state.initialize()
+        return state
+
+    monkeypatch.setattr(state_commands, "_state", isolated_state)
+    setup_result = runner.invoke(app, ["setup"])
+    devices_result = runner.invoke(app, ["devices"])
+
+    assert setup_result.exit_code == 0
+    assert "No credentials or devices were created" in setup_result.stdout
+    assert devices_result.exit_code == 0
+    assert "NetSage devices" in devices_result.stdout
+    assert state.paths.inventory.is_file()
 
 
 def test_module_entrypoint() -> None:

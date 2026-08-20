@@ -105,6 +105,7 @@ class DeviceRef(BaseModel):
     host: str
     platform: Platform
     credential_ref: CredentialReference
+    trust_ref: str | None = None
     port: int = Field(default=22, ge=1, le=65535)
     site: str | None = None
     groups: frozenset[str] = frozenset()
@@ -114,11 +115,17 @@ class DeviceRef(BaseModel):
 
     @model_validator(mode="after")
     def validate_safe_identity(self) -> Self:
+        if not _REFERENCE_PATTERN.fullmatch(self.name):
+            raise ValueError("device name must be a stable opaque identifier")
         for label, value in (("device name", self.name), ("host", self.host)):
             if not value.strip():
                 raise ValueError(f"{label} must not be blank")
         if "@" in self.host:
             raise ValueError("host must not contain embedded credentials")
+        if any(character.isspace() for character in self.host):
+            raise ValueError("host must not contain whitespace")
+        if self.trust_ref is not None and not _REFERENCE_PATTERN.fullmatch(self.trust_ref):
+            raise ValueError("trust reference must be an opaque name")
         return self
 
 

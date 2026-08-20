@@ -1,10 +1,23 @@
-devices:
-  fortigate-main:
-    host: 192.0.2.1
-    platform: fortios
-    credential_ref: fortinet-readonly
+schema_version: 1
 
-  hp-access-01:
-    host: 192.0.2.2
-    platform: aruba_aoss
-    credential_ref: hp-readonly
+devices:
+  fortigate-example:
+    name: fortigate-example
+    platform: fortios
+    host: 192.0.2.10
+    port: 22
+    credential_ref: fortigate-readonly
+    trust_ref: fortigate-example
+    capabilities:
+      - facts
+      - interfaces
+      - vlans
+      - arp
+      - routes
+      - system_health
+      - firewall
+      - ping
+      - traceroute
+
+sites: {}
+groups: {}

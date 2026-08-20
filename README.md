@@ -32,6 +32,7 @@ shell, password, private-key, or API-token access.
 | Supported | Core contracts | Network drivers, AI providers, credential isolation, and structured broker tools |
 | Experimental | FortiGate | Fixture- and live-verified read-only SSH facts, interfaces, VLANs, ARP, routes, health, firewall policies, ping, and traceroute |
 | Experimental | Evidence and deterministic investigations | Typed provenance, in-memory evidence, partial-failure handling, and FortiGate analysis without AI |
+| Experimental | Secure local onboarding | Versioned non-secret state, OS-keyring passwords, persistent SSH fingerprint trust, and FortiOS Device-ID workflows |
 | In development | Network platforms | FortiSwitch, HP/HPE/ArubaOS-Switch, and Aruba AOS-CX |
 | In development | Security pipeline | Persistent audit and evidence storage |
 | Planned | AI providers | Codex, Anthropic Claude, Ollama, and OpenAI-compatible APIs |
@@ -50,6 +51,8 @@ evidence, or tool results.
 - Structured vendor operations are allowlisted through drivers and the broker.
 - Evidence must be sanitized before it crosses the AI boundary.
 - Tool calls are designed to become auditable without recording secrets.
+- Persistent YAML contains metadata and fingerprints only; passwords remain in
+  the OS credential store with no plaintext fallback.
 
 See the [master architecture](PROJECT_SPEC.md), [current milestone](CURRENT_MILESTONE.md),
 and complete [security model](SECURITY.md).
@@ -66,6 +69,22 @@ uv sync --dev
 uv run netsage --help
 uv run netsage doctor
 ```
+
+Initialize secure user-level state, add a keyring credential and one authorized
+FortiOS device, then use its logical Device ID:
+
+```powershell
+uv run netsage setup
+uv run netsage credentials add
+uv run netsage device add
+uv run netsage devices
+uv run netsage device test fortigate-example
+uv run netsage investigate fortigate-example
+```
+
+Device onboarding requires explicit SSH host-key review before authentication.
+See [device onboarding](docs/device-onboarding.md),
+[credential storage](docs/credentials.md), and [local state](docs/local-state.md).
 
 ## Standalone installation
 
@@ -128,11 +147,17 @@ uv run pytest
 netsage --help
 netsage --version
 netsage doctor
+netsage setup
+netsage credentials add|list|show|remove
+netsage device add|show|test|remove|trust-reset
+netsage devices
+netsage investigate DEVICE
 ```
 
 `doctor` reports the local Python, Git, SSH, credential-store, and optional
-Docker state. The `setup`, `device`, and `devices` commands are intentionally
-safe placeholders until their read-only workflows are implemented.
+Docker state. Device list/show use only local metadata. Device test and
+investigate rediscover and validate stored SSH trust before resolving the
+keyring credential and connecting.
 
 The experimental FortiGate live test prompts for every connection value and
 keeps its password in process memory only:
@@ -160,7 +185,7 @@ provider. See the [evidence model](docs/evidence.md) and
 
 | Component | Responsibility | AI receives secrets? |
 |---|---|---:|
-| Credential Provider | Resolve an opaque credential reference through keychain, SSH agent, or test-only environment provider | No |
+| Credential Provider | Resolve an opaque profile through the OS keyring inside the trusted runtime boundary | No |
 | Network Driver | Translate a fixed read-only operation into vendor-specific access | No |
 | Tool Broker | Validate and dispatch allowlisted structured calls | No |
 | Evidence layer | Normalize and redact untrusted device output | No |
@@ -192,13 +217,22 @@ AI-agent implementation at this stage.
 - Credential resolution exclusively inside the trusted connection layer
 - Capability-aware Broker tools and sanitized synthetic fixtures
 
-### Evidence and deterministic investigation — current milestone, complete
+### Evidence and deterministic investigation — complete
 
 - Typed evidence envelopes with UTC timestamps and non-secret provenance
 - Explicit untrusted-data marking and a secret-rejecting in-memory store
 - Deterministic FortiGate health, active-default-route, and interface-state checks
 - Partial evidence and `INSUFFICIENT` reports when collection fails
 - Human-readable reports with no AI dependency
+
+### Secure local state and device onboarding — current milestone, complete
+
+- Platform-appropriate, schema-versioned non-secret YAML state
+- Atomic writes, corruption handling, and restrictive user-level permissions
+- OS-keyring password profiles with transactional metadata rollback
+- Persistent SSH fingerprint trust with changed-key rejection
+- FortiOS Device-ID add/list/show/test/remove/investigate workflows
+- Evidence and Audit remain in-memory
 
 ### Vendor and provider expansion — planned
 

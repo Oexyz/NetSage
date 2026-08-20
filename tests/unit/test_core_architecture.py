@@ -47,6 +47,23 @@ def test_device_rejects_embedded_credentials() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("name", "host"),
+    [
+        ("has whitespace", "192.0.2.10"),
+        ("valid-name", "firewall example.test"),
+    ],
+)
+def test_device_rejects_problematic_logical_names_and_hosts(name: str, host: str) -> None:
+    with pytest.raises(ValidationError):
+        DeviceRef(
+            name=name,
+            host=host,
+            platform="fortios",
+            credential_ref="readonly",
+        )
+
+
 def test_normalized_models_validate_vlan_mac_and_untrusted_content() -> None:
     interface = Interface(
         device_id="hp-core-01",
