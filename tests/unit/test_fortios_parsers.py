@@ -302,6 +302,20 @@ def test_parses_system_health() -> None:
     assert health.uptime_seconds == 1_047_840
 
 
+def test_parses_system_health_from_memory_totals_format() -> None:
+    health = parse_system_health(
+        "fortigate-lab",
+        "CPU states: 1.5% user 2% system 0% nice 96.5% idle 0% iowait 0% irq 0% softirq\n"
+        "CPU0 states: 2% user 2% system 0% nice 96% idle 0% iowait 0% irq 0% softirq\n"
+        "Memory: 8000000k total, 1000000k used (12.5%), "
+        "6000000k free (75%), 1000000k freeable (12.5%)\n"
+        "Uptime: 2 days, 3 hours, 4 minutes\n",
+    )
+    assert health.cpu_percent == 3.5
+    assert health.memory_percent == 12.5
+    assert health.uptime_seconds == 183_840
+
+
 def test_parses_firewall_policies_without_interpreting_comments() -> None:
     policies = parse_firewall_policies("fortigate-lab", fixture("firewall_policies.txt"))
     assert len(policies) == 2

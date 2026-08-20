@@ -232,11 +232,17 @@ def parse_routes(device_id: str, output: str) -> tuple[Route, ...]:
 
 
 def parse_system_health(device_id: str, output: str) -> SystemHealth:
-    idle_match = re.search(r"(?m)^CPU states:.*?\b(\d+)%\s+idle\b", output)
-    memory_match = re.search(r"(?m)^Memory states:\s*(\d+)%\s+used\b", output)
-    if not idle_match or not memory_match:
+    idle_match = re.search(r"(?im)^CPU states:.*?\b([\d.]+)%\s+idle\b", output)
+    memory_states_match = re.search(r"(?im)^Memory states:\s*([\d.]+)%\s+used\b", output)
+    memory_totals_match = re.search(
+        r"(?im)^Memory:\s*[\d,]+k\s+total,\s*[\d,]+k\s+used\s*"
+        r"\(([\d.]+)%\)",
+        output,
+    )
+    memory_match = memory_states_match or memory_totals_match
+    if idle_match is None or memory_match is None:
         raise FortiOSParseError("FortiOS performance output is incomplete")
-    cpu_percent = float(100 - int(idle_match.group(1)))
+    cpu_percent = 100.0 - float(idle_match.group(1))
     memory_percent = float(memory_match.group(1))
     status = HealthStatus.HEALTHY
     if cpu_percent >= 90 or memory_percent >= 90:

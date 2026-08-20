@@ -30,7 +30,7 @@ shell, password, private-key, or API-token access.
 | Supported | Developer foundation | Installable Python package, CLI, quality gates, and environment diagnostics |
 | Supported | Core architecture | Typed network models, capabilities, validated inventory, Observe policy, redaction, in-memory audit events, and fake driver |
 | Supported | Core contracts | Network drivers, AI providers, credential isolation, and structured broker tools |
-| Experimental | FortiGate | Fixture-verified read-only SSH facts, interfaces, VLANs, ARP, routes, health, firewall policies, ping, and traceroute |
+| Experimental | FortiGate | Fixture- and live-verified read-only SSH facts, interfaces, VLANs, ARP, routes, health, firewall policies, ping, and traceroute |
 | In development | Network platforms | FortiSwitch, HP/HPE/ArubaOS-Switch, and Aruba AOS-CX |
 | In development | Security pipeline | Persistent audit storage and evidence collection |
 | Planned | AI providers | Codex, Anthropic Claude, Ollama, and OpenAI-compatible APIs |

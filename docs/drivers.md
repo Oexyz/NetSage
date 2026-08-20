@@ -53,9 +53,14 @@ configuration and could affect other administrators.
 
 Parsers accept prompt and command-echo variants, current-VDOM wrappers, omitted
 default settings, nested configuration blocks, and common FortiOS appliance model
-names. The current milestone is still a deliberately bounded FortiOS 7.x-style
-surface; unsupported output fails with a safe parser error instead of fabricated
-empty data.
+names. System-health parsing supports both the `Memory states: ... used` format
+and the FortiOS 7.2-style total/used/free memory format. The current milestone is
+still a deliberately bounded FortiOS 7.x-style surface; unsupported output fails
+with a safe parser error instead of fabricated empty data.
+
+The complete passive snapshot has been verified against an authorized FortiOS
+7.2.13 device. No device hostname, address, serial number, credential, or raw
+capture from that verification is stored in the repository.
 
 ### Data flow
 

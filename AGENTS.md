@@ -48,6 +48,7 @@ work is represented by the following commits on `main`:
 - `2f68784 fix: include credential isolation package`
 - `5ea3585 fix: normalize Windows paths consistently`
 - `57d6947 feat: establish core architecture`
+- `d3f9fc6 feat: add FortiOS read-only driver`
 
 At the time of this handoff, local `main` matches `origin/main`, the repository is
 public, the latest GitHub Actions CI run on `main` succeeds, and no release tag or
@@ -56,7 +57,7 @@ exist until a `v*` tag has successfully completed the release workflow.
 
 The local verification snapshot on 2026-08-20 is green: Ruff formatting and
 linting pass, strict mypy reports no issues in 35 source files, and pytest reports
-89 passing unit tests with 89.26% total coverage (the configured floor is 80%).
+90 passing unit tests with 89.28% total coverage (the configured floor is 80%).
 
 ### Development-machine bootstrap
 
@@ -116,11 +117,10 @@ The Typer/Rich CLI currently implements and tests:
 availability. `setup`, `device`, and `devices` exist only as safe placeholders.
 They must not be described as functional network workflows.
 
-The FortiGate driver and interactive live-test path are implemented and
-fixture-verified. The target SSH endpoint and host-key discovery were verified
-without authentication; the authenticated live snapshot still requires a human
-to enter the password into the hidden local prompt. NetSage cannot modify a
-network device.
+The FortiGate driver and interactive live-test path are implemented,
+fixture-verified, and live-verified against an authorized FortiOS 7.2.13 device.
+The password was entered through the hidden local prompt and was not persisted.
+NetSage cannot modify a network device.
 
 ### Architecture contracts
 
@@ -341,7 +341,6 @@ Do not imply that the following exist, and do not add them incidentally:
 
 ## Next recommended milestone
 
-Complete the authorized interactive FortiGate live snapshot and fix only
-evidence-backed compatibility issues found against that device. After live
-verification, add a typed evidence envelope before exposing FortiGate
-observations to an investigation workflow. Do not add an AI provider yet.
+Add a typed evidence envelope before exposing FortiGate observations to a
+deterministic investigation workflow. Preserve source provenance, untrusted-data
+marking, and secret-free audit boundaries. Do not add an AI provider yet.

@@ -1,7 +1,7 @@
 # Current Milestone: FortiGate Read-Only Driver
 
-Status: implemented and fixture-verified in the current worktree; authorized live
-verification remains before the milestone can be called complete.
+Status: complete. The implementation is fixture-verified and its passive snapshot
+has been live-verified against an authorized FortiOS 7.2.13 device.
 
 This file defines current implementation scope. Long-term architecture and
 security requirements remain authoritative in `PROJECT_SPEC.md`.
