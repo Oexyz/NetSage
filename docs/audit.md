@@ -26,5 +26,10 @@ Recent events are available without network access:
 netsage audit --limit 50
 ```
 
+Promoted manual FortiOS catalog reads use stable tool names of the form
+`fortios_catalog:<command_id>`. Audit stores the logical device, READ_ONLY
+authorization, safe named arguments, result category, duration, and bounded error
+code. It never stores the rendered CLI string or raw/sanitized command output.
+
 There is no automatic retention or purge policy yet. Audit remains after an
 Investigation and its Evidence are removed.

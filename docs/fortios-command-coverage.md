@@ -18,10 +18,17 @@ Source: `fortios.md` (FortiOS 7.2.13, SHA-256 `8b13dbf360a9ac166eb198d90b300fd6a
 | Configuration | 14390 |
 | Destructive | 833 |
 | Structured executable | 2 |
-| Executable in default Observe | 0 |
+| Executable in default Observe | 515 |
+| READ_ONLY safely executable | 515 |
+| READ_ONLY requires review | 362 |
+| READ_ONLY non-executable | 172 |
+| DIAGNOSTIC structured semantic operations | 2 |
+| DIAGNOSTIC denied by default | 2758 |
+| CONFIGURATION executable | 0 |
+| DESTRUCTIVE executable | 0 |
 | Typed output parsers | 2 |
-| Sanitized-text parsers | 0 |
-| Catalog-only | 19028 |
+| Sanitized-text parsers | 515 |
+| Catalog-only | 18513 |
 
 Catalog coverage is 100% of definitions discovered by the checked-in extractor.
 This is command-knowledge coverage, not full execution or typed-parser support.

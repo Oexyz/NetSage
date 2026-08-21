@@ -17,12 +17,23 @@ fail-closed stubs. Passwords, SSH private keys, API tokens, SNMP communities, an
 AAA shared secrets must never enter prompts, AI context, state files, logs,
 evidence, audit events, or tool results.
 
-The generated FortiOS command catalog contains knowledge and policy metadata
-only. It does not add a generic transport method. Catalog-only definitions cannot
-reach `FortiOSSSHTransport`; configuration and destructive classes remain denied
-by ObservePolicy. The optional local renderer accepts only definition-owned typed
-arguments and rejects sensitive placeholders, control characters, shell syntax,
-and unexpected names.
+The generated FortiOS command catalog contains knowledge and policy metadata and
+does not add a generic command-string transport method. Exactly 515 conservatively
+promoted READ_ONLY definitions can reach the expert executor by Catalog ID and
+validated named arguments. Another 362 require review and 172 are explicitly
+non-executable. All diagnostics remain denied by default through this layer;
+configuration and destructive executable counts are zero.
+
+Dry-run performs lookup, disposition, ObservePolicy, typed validation, and
+rendering before host verification or credential resolution. Actual execution
+reuses the pinned existing runtime/transport; the transport independently repeats
+manifest checks before resolving credentials. Sensitive/incomplete/contextual/
+interactive/ambiguous definitions, broad strings and enum mode arguments, control
+characters, separators, substitutions, pipes, and unexpected names fail closed.
+Output is bounded, double-redacted, terminal-control filtered, marked untrusted,
+and discarded after terminal/JSON delivery. Only stable command ID, safe named
+arguments, decision, result category, and duration enter Audit; output never
+enters Evidence, History, logs, or AI context.
 
 The interactive `netsage` prompt dispatches only registered commands through the
 same Typer tree as one-shot CLI calls. Unknown input is never forwarded to the

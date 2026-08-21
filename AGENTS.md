@@ -54,28 +54,34 @@ work is represented by the following commits on `main`:
 - `37e7619 feat: add secure FortiOS device onboarding`
 - `322ad38 feat: add persistent investigation history`
 - `2fd7d14 feat: add secure agent runtime boundary`
+- `f5b74a9 feat: add Codex-first OpenAI runtime`
+- `da355c1 feat: add FortiOS command catalog and interactive shell`
+- `88044d9 test: make interactive help assertions portable`
 
-The latest committed `main` and `origin/main` are `2fd7d14`. The OpenAI/Codex
-runtime work is intentionally local and must not be pushed unless the user gives
-a later explicit instruction. The repository is public; no release tag or GitHub
-Release has been created yet. Do not claim downloadable release assets exist
-until a `v*` tag has successfully completed the release workflow.
+The published baseline before the active catalog-execution milestone is
+`88044d9`, with GitHub Actions run `32521802318` successful. The repository is
+public; no release tag or GitHub Release has been created yet. Do not claim
+downloadable release assets exist until a `v*` tag has successfully completed
+the release workflow.
 
 The current local verification snapshot is recorded in `CURRENT_MILESTONE.md`.
 Do not copy historical test totals from this guide when newer live gate output is
 available.
 
-As of 2026-08-21, Ruff format/check and strict mypy pass for 91 source files,
-pytest reports 220 passing tests with 87.59% coverage, the generated-catalog drift
+As of 2026-08-21, Ruff format/check and strict mypy pass for 93 source files,
+pytest reports 260 passing tests with 88.07% coverage, the generated-catalog drift
 check is clean, and all configured pre-commit hooks pass. The installed Codex App
 Server, a synthetic evidence-free Structured Output turn, authorized FortiOS
 read-only workflows, and rebuilt Windows standalone were verified live without
 configuration changes.
 
-The active authorized milestone is now FortiOS CLI Coverage & Interactive Shell.
-It is complete and remains local/unpushed. `fortios.md` is local copyrighted
-reference material and must remain ignored; generated catalog data, tests, and
-honest coverage documentation are the repository artifacts.
+FortiOS CLI Coverage & Interactive Shell is published on `main` and CI-green at
+`88044d9`. The active milestone is now FortiOS Read-Only Catalog Execution
+Foundation. Its implementation and local verification are complete; consult Git
+and GitHub Actions for the current publication state.
+`fortios.md` is local copyrighted reference material and must remain ignored;
+generated metadata, tests, and honest coverage documentation are the repository
+artifacts.
 
 ### Development-machine bootstrap
 
@@ -144,6 +150,7 @@ The Typer/Rich CLI currently implements and tests:
 - `netsage investigation show|remove UUID`
 - `netsage audit --limit N`
 - `netsage fortios commands search|show|coverage`
+- `netsage fortios run DEVICE COMMAND_ID [--arg NAME=VALUE] [--dry-run] [--json]`
 - `netsage ai status`
 - `netsage ai openai status|login|logout|models|configure`
 - `netsage ask DEVICE "question"` for the Codex-first/OpenAI-API-fallback workflow
@@ -168,8 +175,7 @@ processes; a byte scan found no credential material.
 
 The current runtime selection prefers an installed official Codex App Server and
 uses the direct official OpenAI API only when Codex is absent. NetSage does not
-bundle Codex or Node.js and never reads/copies Codex auth material. No part of
-this local milestone has been pushed.
+bundle Codex or Node.js and never reads/copies Codex auth material.
 
 ### Architecture contracts
 
@@ -217,9 +223,16 @@ The foundation has intentionally small, testable boundaries:
   mandatory, credentials resolve only inside the trusted transport, and paged
   output is advanced without changing the device's global console configuration.
 - The generated FortiOS 7.2.13 knowledge catalog is separate from that transport
-  allowlist. It records all source-derived definitions with policy and source
-  metadata, but only existing typed requests can execute. Catalog-only entries
-  never reach SSH.
+  allowlist. It records all source-derived definitions with policy, promotion,
+  argument, and source metadata. The expert executor promotes 515 of 1,049
+  READ_ONLY definitions to bounded `SANITIZED_TEXT`; 362 require review and 172
+  are non-executable. Catalog-only entries never reach SSH.
+- `FortiOSCatalogExecutor` accepts only Device/Command IDs and named values,
+  checks generated disposition and ObservePolicy, validates/renders arguments,
+  reuses the existing pinned runtime/transport, double-redacts and bounds output,
+  returns untrusted non-persistent/non-Evidence results, and records secret-free
+  Audit metadata. The transport repeats ID/class/disposition checks before
+  credential resolution.
 - FortiSwitch, HP/HPE/ArubaOS-Switch (`aruba_aoss`), and Aruba AOS-CX
   (`aruba_aoscx`) remain driver placeholders.
 - `EvidenceEnvelope` retains typed normalized payloads, UTC timestamps, explicit
@@ -305,6 +318,8 @@ The foundation has intentionally small, testable boundaries:
 - `docs/fortios-command-catalog.md` and the generated coverage report distinguish
   catalog knowledge from executable/typed support; `docs/interactive-shell.md`
   documents the shared-handler REPL and OS-shell denial.
+- `docs/fortios-catalog-execution.md` documents ID-only execution, promotion,
+  typed rendering, output, Audit, error, AI, Evidence, and persistence boundaries.
 - `examples/inventory.example.yaml` uses documentation-only `192.0.2.0/24`
   addresses and opaque credential references. Never replace these with real
   infrastructure data.
@@ -449,8 +464,8 @@ Do not imply that the following exist, and do not add them incidentally:
 
 ## Next recommended milestone
 
-Complete FortiOS CLI Coverage & Interactive Shell before beginning anything
-else. After it is verified, prefer a small typed AI-assessment persistence or
-deterministic-investigation breadth milestone. Do not automatically begin another
-provider, vendor, discovery, topology, probe, vantage-point, MCP, Web, or
+Complete FortiOS Read-Only Catalog Execution Foundation before beginning anything
+else. After it is verified, promote a small reviewed set to semantic normalized
+operations or broaden deterministic investigations. Do not automatically begin
+another provider, vendor, discovery, topology, probe, vantage-point, MCP, Web, or
 configuration milestone.

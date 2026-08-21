@@ -26,6 +26,9 @@ def test_catalog_search_show_and_coverage_are_local_read_only_commands() -> None
     assert "Classification" in shown.output
     assert "diagnostic" in shown.output
     assert "Executable in default Observe" in shown.output
+    assert "Execution disposition" in shown.output
+    assert "Execution reason" in shown.output
+    assert "AI-visible" in shown.output
     assert "No command was executed" in shown.output
     assert "Commands catalogued" in coverage.output
     assert "19030" in coverage.output

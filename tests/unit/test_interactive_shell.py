@@ -12,6 +12,7 @@ from netsage.cli import main as main_module
 from netsage.cli import state_commands
 from netsage.cli.main import app
 from netsage.cli.shell import NetSageInteractiveShell
+from netsage.drivers.fortios.catalog import registry as catalog_registry
 from netsage.state import LocalState, StatePaths
 
 runner = CliRunner()
@@ -142,11 +143,13 @@ def test_unknown_and_os_shell_input_never_executes_processes(
     result = runner.invoke(
         app,
         [],
-        input="foobar\nwhoami\nrm -rf example\npowershell Get-Process\nexit\n",
+        input=(
+            "foobar\nwhoami\nrm -rf example\npowershell Get-Process\nshow system status\nexit\n"
+        ),
     )
 
     assert result.exit_code == 0
-    for command in ("foobar", "whoami", "rm", "powershell"):
+    for command in ("foobar", "whoami", "rm", "powershell", "show"):
         assert f"Unknown command: {command}" in result.output
     assert "Type 'help' to list available commands." in result.output
 
@@ -163,6 +166,19 @@ def test_shell_startup_performs_no_device_or_ai_network_access(
 
     assert result.exit_code == 0
     assert "Mode: Observe" in result.output
+
+
+def test_shell_startup_does_not_load_catalog_manifest(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def forbidden_manifest():
+        raise AssertionError("shell startup must keep catalog loading lazy")
+
+    monkeypatch.setattr(catalog_registry, "load_manifest", forbidden_manifest)
+
+    result = runner.invoke(app, [], input="exit\n")
+
+    assert result.exit_code == 0
 
 
 def test_help_and_version_remain_non_interactive() -> None:

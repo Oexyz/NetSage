@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import pytest
@@ -5,6 +6,7 @@ import pytest
 from netsage.drivers.fortios.catalog import (
     FortiOSCommandRegistry,
     FortiOSCommandRenderError,
+    FortiOSExecutionDisposition,
     FortiOSExecutionSupport,
     FortiOSParserSupport,
     load_manifest,
@@ -33,7 +35,7 @@ COVERAGE_DOCUMENT = ROOT / "docs" / "fortios-command-coverage.md"
 
 @pytest.fixture(scope="module")
 def source_manifest():
-    if not SOURCE.is_file():
+    if not SOURCE.is_file() or os.environ.get("NETSAGE_SKIP_LOCAL_FORTIOS_SOURCE") == "1":
         pytest.skip("local copyrighted fortios.md source is not present")
     return build_manifest(SOURCE)
 
@@ -78,10 +80,17 @@ def test_catalog_class_counts_and_execution_claims_are_exact() -> None:
     assert coverage.configuration == 14_390
     assert coverage.destructive == 833
     assert coverage.structured_executable == 2
-    assert coverage.executable_in_observe == 0
+    assert coverage.executable_in_observe == 515
     assert coverage.typed_parsers == 2
-    assert coverage.sanitized_text_parsers == 0
-    assert coverage.catalog_only == 19_028
+    assert coverage.sanitized_text_parsers == 515
+    assert coverage.catalog_only == 18_513
+    assert coverage.read_only_executable == 515
+    assert coverage.read_only_requires_review == 362
+    assert coverage.read_only_non_executable == 172
+    assert coverage.diagnostic_structured == 2
+    assert coverage.diagnostic_default_denied == 2_758
+    assert coverage.configuration_executable == 0
+    assert coverage.destructive_executable == 0
 
 
 def test_observe_policy_denies_catalogued_configuration_and_destructive_commands() -> None:
@@ -119,6 +128,7 @@ def test_only_existing_typed_diagnostics_have_structured_execution() -> None:
         definition.command_class is OperationClass.DIAGNOSTIC
         and definition.parser_support is FortiOSParserSupport.TYPED
         and definition.observe_allowed is False
+        and definition.execution_disposition is FortiOSExecutionDisposition.NON_EXECUTABLE
         for definition in structured.values()
     )
 

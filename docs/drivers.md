@@ -55,6 +55,23 @@ netsage fortios commands coverage
 See [FortiOS command catalog](fortios-command-catalog.md) for exact generated
 coverage and the distinction between known, executable, and typed output.
 
+### Read-only catalog execution
+
+The expert `FortiOSCatalogExecutor` promotes 515 of 1,049 READ_ONLY definitions
+to bounded `SANITIZED_TEXT`; 362 require review and 172 are non-executable. It
+accepts only a catalog ID plus validated named arguments. A local dry-run occurs
+before runtime preparation, so denied or invalid commands do not verify a host,
+resolve a credential, or connect.
+
+Actual execution reuses `FortiOSRuntimeFactory`, the existing host-key trust
+manager, credential provider, `FortiOSDriver`, and `FortiOSSSHTransport`. The
+transport repeats manifest/disposition/class checks before credential resolution.
+It applies existing paging and command timeouts/output limits; the executor adds
+double redaction, terminal-control filtering, a tighter result limit, untrusted
+result metadata, and secret-free persistent Audit. Text output itself is never
+stored or converted into Evidence. See
+[FortiOS catalog execution](fortios-catalog-execution.md).
+
 ### Shell output handling
 
 FortiOS can paginate long `show` and `get` output at `--More--`. The transport

@@ -1,9 +1,11 @@
 """Read-only FortiOS driver using typed commands and normalized parsers."""
 
+from __future__ import annotations
+
 from collections.abc import Sequence
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from netsage.drivers.base import NetworkDriver, UnsupportedCapabilityError
 from netsage.drivers.fortios.commands import FortiOSCommand, FortiOSRequest
@@ -33,9 +35,14 @@ from netsage.models import (
     TracerouteResult,
 )
 
+if TYPE_CHECKING:
+    from netsage.drivers.fortios.catalog.execution_models import FortiOSCatalogInvocation
+
 
 class FortiOSTransport(Protocol):
     async def execute(self, requests: Sequence[FortiOSRequest]) -> tuple[str, ...]: ...
+
+    async def execute_catalog(self, request: FortiOSCatalogInvocation) -> str: ...
 
 
 FORTIOS_CAPABILITIES = frozenset(
@@ -153,3 +160,8 @@ class FortiOSDriver(NetworkDriver):
             (FortiOSRequest(FortiOSCommand.TRACEROUTE, destination),)
         )
         return parse_traceroute_result(self._device_id, str(destination), output)
+
+    async def execute_catalog(self, request: FortiOSCatalogInvocation) -> str:
+        """Delegate only an ID-based catalog invocation to the trusted transport."""
+
+        return await self._transport.execute_catalog(request)

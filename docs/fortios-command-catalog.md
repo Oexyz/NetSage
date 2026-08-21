@@ -32,10 +32,14 @@ those lists. Fifty-five truncated/prose rows are explicitly accounted for as
 conversion/non-command artifacts; they are not silently discarded or invented as
 commands.
 
-Only the existing structured `execute ping` and `execute traceroute` paths are
-marked executable and typed. They remain diagnostic operations and are denied by
-the default Observe policy unless explicitly allowed. The other 19,028 entries
-are `catalog_only`.
+Every READ_ONLY definition now also has a generated execution disposition. Of
+1,049 entries, 515 are promoted to bounded `SANITIZED_TEXT`, 362 require review,
+and 172 are non-executable from available syntax. The two existing structured
+`execute ping` and `execute traceroute` paths remain typed semantic diagnostics,
+not Catalog Executor promotions. All diagnostics remain denied by default.
+
+See [FortiOS catalog execution](fortios-catalog-execution.md) for the execution,
+redaction, audit, and persistence boundaries.
 
 ## Source and generation
 

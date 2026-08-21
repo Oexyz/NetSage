@@ -18,6 +18,8 @@ from netsage.drivers.fortios.catalog.models import (
     FortiOSCommandContext,
     FortiOSCommandDefinition,
     FortiOSCommandManifest,
+    FortiOSExecutionDisposition,
+    FortiOSExecutionReason,
     FortiOSExecutionSupport,
     FortiOSParserSupport,
     FortiOSSourceReference,
@@ -119,6 +121,64 @@ _STRUCTURED_COMMANDS = {
     "execute ping": (Capability.PING, FortiOSParserSupport.TYPED),
     "execute traceroute": (Capability.TRACEROUTE, FortiOSParserSupport.TYPED),
 }
+_INTERACTIVE_WORDS = {
+    "capture",
+    "console",
+    "debug",
+    "follow",
+    "interactive",
+    "monitor",
+    "packet",
+    "shell",
+    "sniffer",
+    "stream",
+    "tail",
+    "top",
+    "trace",
+    "watch",
+}
+_SIDE_EFFECT_WORDS = {
+    "add",
+    "apply",
+    "create",
+    "disable",
+    "download",
+    "enable",
+    "export",
+    "flush",
+    "generate",
+    "import",
+    "migrate",
+    "poll",
+    "provision",
+    "push",
+    "refresh",
+    "renew",
+    "request",
+    "scan",
+    "send",
+    "set",
+    "start",
+    "stop",
+    "sync",
+    "test",
+    "trigger",
+    "update",
+    "upload",
+}
+_SENSITIVE_PATH_WORDS = {
+    "cert",
+    "certificate",
+    "community",
+    "credential",
+    "key",
+    "password",
+    "passphrase",
+    "private",
+    "psk",
+    "secret",
+    "token",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,6 +258,7 @@ def build_manifest(source_path: Path) -> FortiOSCommandManifest:
         context_definitions=context_definitions,
     )
     definitions = _deduplicate_ids(topic_definitions + context_definitions)
+    definitions = _apply_execution_dispositions(definitions)
     definitions.sort(key=lambda definition: definition.id)
     coverage = _coverage(
         definitions,
@@ -252,6 +313,13 @@ Source: `fortios.md` (FortiOS {manifest.fortios_version}, SHA-256 `{source_hash}
 | Destructive | {coverage.destructive} |
 | Structured executable | {coverage.structured_executable} |
 | Executable in default Observe | {coverage.executable_in_observe} |
+| READ_ONLY safely executable | {coverage.read_only_executable} |
+| READ_ONLY requires review | {coverage.read_only_requires_review} |
+| READ_ONLY non-executable | {coverage.read_only_non_executable} |
+| DIAGNOSTIC structured semantic operations | {coverage.diagnostic_structured} |
+| DIAGNOSTIC denied by default | {coverage.diagnostic_default_denied} |
+| CONFIGURATION executable | {coverage.configuration_executable} |
+| DESTRUCTIVE executable | {coverage.destructive_executable} |
 | Typed output parsers | {coverage.typed_parsers} |
 | Sanitized-text parsers | {coverage.sanitized_text_parsers} |
 | Catalog-only | {coverage.catalog_only} |
@@ -650,6 +718,116 @@ def _deduplicate_ids(
     return result
 
 
+def _apply_execution_dispositions(
+    definitions: list[FortiOSCommandDefinition],
+) -> list[FortiOSCommandDefinition]:
+    operational_paths = {
+        definition.path.lower()
+        for definition in definitions
+        if definition.scope is None
+        and definition.command_class in {OperationClass.READ_ONLY, OperationClass.DIAGNOSTIC}
+    }
+    promoted: list[FortiOSCommandDefinition] = []
+    for definition in definitions:
+        if definition.command_class is OperationClass.DIAGNOSTIC:
+            promoted.append(
+                definition.model_copy(
+                    update={
+                        "execution_disposition": FortiOSExecutionDisposition.NON_EXECUTABLE,
+                        "execution_reason": FortiOSExecutionReason.DIAGNOSTIC_SEMANTIC_ONLY,
+                    }
+                )
+            )
+            continue
+        if definition.command_class is not OperationClass.READ_ONLY:
+            promoted.append(definition)
+            continue
+        disposition, reason = _read_only_disposition(definition, operational_paths)
+        update: dict[str, object] = {
+            "execution_disposition": disposition,
+            "execution_reason": reason,
+        }
+        if disposition is FortiOSExecutionDisposition.EXECUTABLE:
+            update.update(
+                {
+                    "execution_support": FortiOSExecutionSupport.SANITIZED_TEXT,
+                    "parser_support": FortiOSParserSupport.SANITIZED_TEXT,
+                }
+            )
+        promoted.append(definition.model_copy(update=update))
+    return promoted
+
+
+def _read_only_disposition(
+    definition: FortiOSCommandDefinition,
+    operational_paths: set[str],
+) -> tuple[FortiOSExecutionDisposition, FortiOSExecutionReason]:
+    if definition.scope is not None or definition.context is FortiOSCommandContext.CONFIGURATION:
+        return (
+            FortiOSExecutionDisposition.NON_EXECUTABLE,
+            FortiOSExecutionReason.CONFIGURATION_CONTEXT,
+        )
+    if any(argument.sensitive for argument in definition.arguments):
+        return (
+            FortiOSExecutionDisposition.NON_EXECUTABLE,
+            FortiOSExecutionReason.SENSITIVE_ARGUMENT,
+        )
+    if "..." in definition.syntax:
+        return (
+            FortiOSExecutionDisposition.NON_EXECUTABLE,
+            FortiOSExecutionReason.SYNTAX_INCOMPLETE,
+        )
+    if not definition.renderable:
+        return (
+            FortiOSExecutionDisposition.NON_EXECUTABLE,
+            FortiOSExecutionReason.SYNTAX_NOT_RENDERABLE,
+        )
+    words = {
+        word
+        for token in definition.path.lower().split()
+        for word in re.split(r"[-_]", token)
+        if word
+    }
+    if words & _INTERACTIVE_WORDS:
+        return (
+            FortiOSExecutionDisposition.NON_EXECUTABLE,
+            FortiOSExecutionReason.INTERACTIVE_UNSUPPORTED,
+        )
+    if any(marker in definition.path.lower() for marker in _SENSITIVE_PATH_WORDS):
+        return (
+            FortiOSExecutionDisposition.NON_EXECUTABLE,
+            FortiOSExecutionReason.SENSITIVE_ARGUMENT,
+        )
+    if words & _SIDE_EFFECT_WORDS:
+        return (
+            FortiOSExecutionDisposition.NON_EXECUTABLE,
+            FortiOSExecutionReason.SEMANTIC_SIDE_EFFECT_RISK,
+        )
+    prefix = f"{definition.path.lower()} "
+    if any(path.startswith(prefix) for path in operational_paths):
+        return (
+            FortiOSExecutionDisposition.REQUIRES_REVIEW,
+            FortiOSExecutionReason.COMMAND_TREE_PARENT,
+        )
+    if any(
+        argument.kind in {FortiOSArgumentKind.BOOLEAN, FortiOSArgumentKind.ENUM}
+        for argument in definition.arguments
+    ):
+        return (
+            FortiOSExecutionDisposition.REQUIRES_REVIEW,
+            FortiOSExecutionReason.ENUM_ARGUMENT_REVIEW,
+        )
+    if any(argument.kind is FortiOSArgumentKind.STRING for argument in definition.arguments):
+        return (
+            FortiOSExecutionDisposition.REQUIRES_REVIEW,
+            FortiOSExecutionReason.BROAD_STRING_ARGUMENT,
+        )
+    return (
+        FortiOSExecutionDisposition.EXECUTABLE,
+        FortiOSExecutionReason.SAFE_READ_ONLY_ONE_SHOT,
+    )
+
+
 def _argument_definitions(syntax: str) -> tuple[FortiOSArgumentDefinition, ...]:
     arguments: list[FortiOSArgumentDefinition] = []
     names: Counter[str] = Counter()
@@ -662,10 +840,26 @@ def _argument_definitions(syntax: str) -> tuple[FortiOSArgumentDefinition, ...]:
         names[base_name] += 1
         name = base_name if names[base_name] == 1 else f"{base_name}-{names[base_name]}"
         choices = _choices(content)
-        kind = _argument_kind(content, choices=choices)
+        minimum, maximum = _integer_bounds(content)
+        kind = _argument_kind(content, choices=choices, bounds=(minimum, maximum))
+        if kind is FortiOSArgumentKind.PORT:
+            minimum = 1 if minimum is None else minimum
+            maximum = 65_535 if maximum is None else maximum
+        elif kind is FortiOSArgumentKind.POLICY_ID:
+            minimum = 0 if minimum is None else minimum
         sensitive = any(
             marker in content.lower()
-            for marker in ("password", "passwd", "private-key", "secret", "token")
+            for marker in (
+                "certificate",
+                "community",
+                "credential",
+                "key",
+                "password",
+                "passwd",
+                "psk",
+                "secret",
+                "token",
+            )
         )
         arguments.append(
             FortiOSArgumentDefinition(
@@ -675,6 +869,8 @@ def _argument_definitions(syntax: str) -> tuple[FortiOSArgumentDefinition, ...]:
                 required="enter" not in content.lower() and "return" not in content.lower(),
                 choices=choices,
                 sensitive=sensitive,
+                minimum=minimum,
+                maximum=maximum,
             )
         )
     return tuple(arguments)
@@ -688,21 +884,61 @@ def _choices(content: str) -> tuple[str, ...]:
             if value.strip() and value.strip() not in {"...", "Enter", "return"}
         )
         return values if len(values) >= 2 else ()
-    if " " in content and all(
-        re.fullmatch(r"[A-Za-z0-9_.:+/-]+", item) for item in content.split()
+    generic_words = {
+        "address",
+        "addr",
+        "file",
+        "host",
+        "id",
+        "interface",
+        "name",
+        "mask",
+        "number",
+        "os",
+        "port",
+        "rule",
+        "server",
+        "string",
+        "top",
+        "tunnel",
+        "type",
+        "user",
+        "web",
+    }
+    words = content.lower().split()
+    if (
+        " " in content
+        and not generic_words.intersection(words)
+        and all(re.fullmatch(r"[A-Za-z0-9_.:+/-]+", item) for item in content.split())
     ):
         values = tuple(content.split())
         return values if len(values) >= 2 and len(values) <= 32 else ()
     return ()
 
 
-def _argument_kind(content: str, *, choices: tuple[str, ...]) -> FortiOSArgumentKind:
+def _integer_bounds(content: str) -> tuple[int | None, int | None]:
+    match = re.fullmatch(r"\(?\s*(-?\d+)\s*-\s*(-?\d+)\s*\)?", content)
+    if match is None:
+        return None, None
+    return int(match.group(1)), int(match.group(2))
+
+
+def _argument_kind(
+    content: str,
+    *,
+    choices: tuple[str, ...],
+    bounds: tuple[int | None, int | None],
+) -> FortiOSArgumentKind:
     lowered = content.lower()
     if choices:
         choice_set = {choice.lower() for choice in choices}
         if choice_set in ({"enable", "disable"}, {"on", "off"}, {"yes", "no"}):
             return FortiOSArgumentKind.BOOLEAN
         return FortiOSArgumentKind.ENUM
+    if bounds != (None, None):
+        return FortiOSArgumentKind.INTEGER
+    if "mac" in lowered or "xx:xx:xx:xx:xx:xx" in lowered:
+        return FortiOSArgumentKind.MAC_ADDRESS
     if "ipv6" in lowered or "xxxx:xxxx" in lowered:
         return FortiOSArgumentKind.IPV6_ADDRESS
     if "ipv4" in lowered or "xxx.xxx.xxx.xxx" in lowered:
@@ -711,13 +947,13 @@ def _argument_kind(content: str, *, choices: tuple[str, ...]) -> FortiOSArgument
         return FortiOSArgumentKind.IP_ADDRESS
     if any(marker in lowered for marker in ("subnet", "cidr", "netmask", "network")):
         return FortiOSArgumentKind.NETWORK
-    if any(marker in lowered for marker in ("integer", "int", "number")):
+    if re.search(r"(?:^|[-_ ])(?:integer|int|number)(?:$|[-_ ])", lowered):
         return FortiOSArgumentKind.INTEGER
     if "policy" in lowered and "id" in lowered:
         return FortiOSArgumentKind.POLICY_ID
     if lowered == "port" or lowered.endswith("-port"):
         return FortiOSArgumentKind.PORT
-    if "interface" in lowered:
+    if "interface" in lowered or "intf" in lowered:
         return FortiOSArgumentKind.INTERFACE
     if "vdom" in lowered or lowered == "vd":
         return FortiOSArgumentKind.VDOM
@@ -733,8 +969,14 @@ def _is_renderable(syntax: str, arguments: tuple[FortiOSArgumentDefinition, ...]
         return False
     if any(argument.sensitive for argument in arguments):
         return False
+    if any(
+        any(marker in argument.placeholder[1:-1] for marker in "<>{}[]") for argument in arguments
+    ):
+        return False
     without_arguments = _PLACEHOLDER.sub("", syntax)
-    if any(marker in without_arguments for marker in "<>{}[]"):
+    if any(marker in without_arguments for marker in "<>{}[]|"):
+        return False
+    if re.search(r"\bor\b", without_arguments, re.IGNORECASE):
         return False
     return all("..." not in argument.choices for argument in arguments)
 
@@ -837,6 +1079,16 @@ def _coverage(
         definition.execution_support is FortiOSExecutionSupport.STRUCTURED
         for definition in definitions
     )
+    sanitized_text = sum(
+        definition.execution_support is FortiOSExecutionSupport.SANITIZED_TEXT
+        for definition in definitions
+    )
+    read_only_definitions = [
+        definition
+        for definition in definitions
+        if definition.command_class is OperationClass.READ_ONLY
+    ]
+    dispositions = Counter(definition.execution_disposition for definition in read_only_definitions)
     return FortiOSCatalogCoverage(
         source_topic_commands=topic_count,
         source_syntax_commands=syntax_count,
@@ -851,6 +1103,25 @@ def _coverage(
         destructive=classes[OperationClass.DESTRUCTIVE],
         structured_executable=structured,
         executable_in_observe=sum(definition.executable_in_observe for definition in definitions),
+        read_only_executable=dispositions[FortiOSExecutionDisposition.EXECUTABLE],
+        read_only_requires_review=dispositions[FortiOSExecutionDisposition.REQUIRES_REVIEW],
+        read_only_non_executable=dispositions[FortiOSExecutionDisposition.NON_EXECUTABLE],
+        diagnostic_structured=sum(
+            definition.command_class is OperationClass.DIAGNOSTIC
+            and definition.execution_support is FortiOSExecutionSupport.STRUCTURED
+            for definition in definitions
+        ),
+        diagnostic_default_denied=classes[OperationClass.DIAGNOSTIC],
+        configuration_executable=sum(
+            definition.command_class is OperationClass.CONFIGURATION
+            and definition.execution_disposition is FortiOSExecutionDisposition.EXECUTABLE
+            for definition in definitions
+        ),
+        destructive_executable=sum(
+            definition.command_class is OperationClass.DESTRUCTIVE
+            and definition.execution_disposition is FortiOSExecutionDisposition.EXECUTABLE
+            for definition in definitions
+        ),
         typed_parsers=sum(
             definition.parser_support is FortiOSParserSupport.TYPED for definition in definitions
         ),
@@ -858,5 +1129,5 @@ def _coverage(
             definition.parser_support is FortiOSParserSupport.SANITIZED_TEXT
             for definition in definitions
         ),
-        catalog_only=len(definitions) - structured,
+        catalog_only=len(definitions) - structured - sanitized_text,
     )

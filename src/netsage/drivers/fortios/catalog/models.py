@@ -27,6 +27,7 @@ class FortiOSArgumentKind(StrEnum):
     POLICY_ID = "policy_id"
     PORT = "port"
     PROTOCOL = "protocol"
+    MAC_ADDRESS = "mac_address"
 
 
 class FortiOSCommandContext(StrEnum):
@@ -39,7 +40,29 @@ class FortiOSCommandContext(StrEnum):
 
 class FortiOSExecutionSupport(StrEnum):
     CATALOG_ONLY = "catalog_only"
+    SANITIZED_TEXT = "sanitized_text"
     STRUCTURED = "structured"
+
+
+class FortiOSExecutionDisposition(StrEnum):
+    EXECUTABLE = "executable"
+    REQUIRES_REVIEW = "requires_review"
+    NON_EXECUTABLE = "non_executable"
+
+
+class FortiOSExecutionReason(StrEnum):
+    SAFE_READ_ONLY_ONE_SHOT = "safe_read_only_one_shot"
+    NOT_READ_ONLY = "not_read_only"
+    DIAGNOSTIC_SEMANTIC_ONLY = "diagnostic_semantic_only"
+    CONFIGURATION_CONTEXT = "configuration_context"
+    SENSITIVE_ARGUMENT = "sensitive_argument"
+    SYNTAX_NOT_RENDERABLE = "syntax_not_renderable"
+    SYNTAX_INCOMPLETE = "syntax_incomplete"
+    INTERACTIVE_UNSUPPORTED = "interactive_unsupported"
+    COMMAND_TREE_PARENT = "command_tree_parent"
+    BROAD_STRING_ARGUMENT = "broad_string_argument"
+    SEMANTIC_SIDE_EFFECT_RISK = "semantic_side_effect_risk"
+    ENUM_ARGUMENT_REVIEW = "enum_argument_review"
 
 
 class FortiOSParserSupport(StrEnum):
@@ -66,6 +89,8 @@ class FortiOSArgumentDefinition(BaseModel):
     required: bool = True
     choices: tuple[str, ...] = ()
     sensitive: bool = False
+    minimum: int | None = None
+    maximum: int | None = None
 
     @field_validator("name")
     @classmethod
@@ -81,6 +106,15 @@ class FortiOSArgumentDefinition(BaseModel):
                 raise ValueError("enum and boolean arguments require choices")
         elif self.choices:
             raise ValueError("only enum and boolean arguments can declare choices")
+        if self.minimum is not None or self.maximum is not None:
+            if self.kind not in {
+                FortiOSArgumentKind.INTEGER,
+                FortiOSArgumentKind.POLICY_ID,
+                FortiOSArgumentKind.PORT,
+            }:
+                raise ValueError("only numeric arguments can declare bounds")
+        if self.minimum is not None and self.maximum is not None and self.minimum > self.maximum:
+            raise ValueError("FortiOS argument bounds are invalid")
         return self
 
 
@@ -102,6 +136,9 @@ class FortiOSCommandDefinition(BaseModel):
     observe_allowed: bool
     execution_support: FortiOSExecutionSupport = FortiOSExecutionSupport.CATALOG_ONLY
     parser_support: FortiOSParserSupport = FortiOSParserSupport.NONE
+    execution_disposition: FortiOSExecutionDisposition = FortiOSExecutionDisposition.NON_EXECUTABLE
+    execution_reason: FortiOSExecutionReason = FortiOSExecutionReason.NOT_READ_ONLY
+    ai_visible: bool = False
     source: FortiOSSourceReference
 
     @field_validator("id")
@@ -116,15 +153,31 @@ class FortiOSCommandDefinition(BaseModel):
         if self.execution_support is FortiOSExecutionSupport.STRUCTURED and not self.renderable:
             raise ValueError("structured execution requires safe rendering")
         if self.parser_support is not FortiOSParserSupport.NONE:
-            if self.execution_support is not FortiOSExecutionSupport.STRUCTURED:
+            if self.execution_support is FortiOSExecutionSupport.CATALOG_ONLY:
                 raise ValueError("output support requires structured execution")
         if self.observe_allowed != (self.command_class is OperationClass.READ_ONLY):
             raise ValueError("Observe allowance must match read-only classification")
+        if self.ai_visible:
+            raise ValueError("catalog commands are not AI-visible")
+        if self.execution_disposition is FortiOSExecutionDisposition.EXECUTABLE:
+            if self.command_class is not OperationClass.READ_ONLY:
+                raise ValueError("only read-only catalog commands can be executable")
+            if not self.renderable or not self.observe_allowed:
+                raise ValueError("catalog execution requires renderable Observe-safe syntax")
+            if self.execution_support is not FortiOSExecutionSupport.SANITIZED_TEXT:
+                raise ValueError("catalog execution requires sanitized-text support")
+            if self.parser_support is not FortiOSParserSupport.SANITIZED_TEXT:
+                raise ValueError("catalog execution requires sanitized-text output")
+            if self.execution_reason is not FortiOSExecutionReason.SAFE_READ_ONLY_ONE_SHOT:
+                raise ValueError("catalog executable reason is inconsistent")
         return self
 
     @property
     def executable_in_observe(self) -> bool:
-        return self.observe_allowed and self.execution_support is FortiOSExecutionSupport.STRUCTURED
+        return (
+            self.observe_allowed
+            and self.execution_disposition is FortiOSExecutionDisposition.EXECUTABLE
+        )
 
 
 class FortiOSCatalogCoverage(BaseModel):
@@ -146,6 +199,13 @@ class FortiOSCatalogCoverage(BaseModel):
     typed_parsers: int = Field(ge=0)
     sanitized_text_parsers: int = Field(ge=0)
     catalog_only: int = Field(ge=0)
+    read_only_executable: int = Field(ge=0)
+    read_only_requires_review: int = Field(ge=0)
+    read_only_non_executable: int = Field(ge=0)
+    diagnostic_structured: int = Field(ge=0)
+    diagnostic_default_denied: int = Field(ge=0)
+    configuration_executable: int = Field(ge=0)
+    destructive_executable: int = Field(ge=0)
 
     @model_validator(mode="after")
     def validate_totals(self) -> Self:
@@ -161,15 +221,25 @@ class FortiOSCatalogCoverage(BaseModel):
         classes = self.read_only + self.diagnostic + self.configuration + self.destructive
         if classes != self.commands_catalogued:
             raise ValueError("FortiOS command-class totals are inconsistent")
-        if self.structured_executable + self.catalog_only != self.commands_catalogued:
+        support_total = self.structured_executable + self.sanitized_text_parsers + self.catalog_only
+        if support_total != self.commands_catalogued:
             raise ValueError("FortiOS execution-support totals are inconsistent")
+        disposition_total = (
+            self.read_only_executable
+            + self.read_only_requires_review
+            + self.read_only_non_executable
+        )
+        if disposition_total != self.read_only:
+            raise ValueError("FortiOS read-only disposition totals are inconsistent")
+        if self.configuration_executable != 0 or self.destructive_executable != 0:
+            raise ValueError("state-changing catalog definitions cannot be executable")
         return self
 
 
 class FortiOSCommandManifest(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    schema_version: int = 1
+    schema_version: int = 2
     generated_notice: str
     source_document: str
     source_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")

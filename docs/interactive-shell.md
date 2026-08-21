@@ -8,6 +8,7 @@ netsage
 netsage> devices
 netsage> investigate firewall-example
 netsage> ask firewall-example "Check routing."
+netsage> fortios run firewall-example fortios.execute.cpu.show --dry-run
 netsage> exit
 ```
 
@@ -17,6 +18,7 @@ The existing one-shot CLI remains unchanged:
 netsage devices
 netsage investigate firewall-example
 netsage ask firewall-example "Check routing."
+netsage fortios run firewall-example fortios.execute.cpu.show --dry-run
 ```
 
 ## Shared command implementation
@@ -51,3 +53,7 @@ Startup reads only enough local metadata to show a device count and checks
 whether `codex` is present on `PATH`. It does not connect to devices, resolve
 credentials, start AI, parse `fortios.md`, or scan a network. Network access
 begins only when an explicitly selected existing command requires it.
+
+Promoted read-only catalog commands are available through the registered
+`fortios run` handler. The REPL still receives only Device ID, Catalog ID, and
+named arguments; it never interprets FortiOS syntax entered at the root prompt.

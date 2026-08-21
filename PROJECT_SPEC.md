@@ -250,6 +250,13 @@ definitions executable. Generated catalog knowledge, local search, typed argumen
 metadata, and policy classification do not weaken the fixed driver/transport
 allowlist.
 
+The later read-only catalog execution foundation may promote only a conservative,
+generator-reviewed READ_ONLY subset. It accepts a Catalog Command ID and typed
+named arguments, reuses ObservePolicy and the existing trusted transport, and
+returns bounded redacted untrusted text. Promotion is independent from AI-tool or
+Evidence exposure. Diagnostics remain explicitly controlled; configuration and
+destructive executable counts remain zero.
+
 ## Credential architecture
 
 Credentials live exclusively in the trusted credential layer. Inventory stores

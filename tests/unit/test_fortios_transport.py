@@ -17,6 +17,7 @@ from netsage.drivers.fortios import (
     discover_ssh_host_key,
 )
 from netsage.drivers.fortios import transport as transport_module
+from netsage.drivers.fortios.catalog import FortiOSCatalogInvocation
 from netsage.models import DeviceRef
 
 
@@ -352,3 +353,54 @@ def test_transport_requires_fortios_device_and_host_key() -> None:
     wrong_device = make_device().model_copy(update={"platform": "aruba_aoscx"})
     with pytest.raises(ValueError, match="FortiOS device"):
         FortiOSSSHTransport(wrong_device, provider, known_hosts_data=b"known")
+
+
+@pytest.mark.asyncio
+async def test_transport_executes_only_promoted_catalog_ids(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    connection = FakeConnection("CPU status: synthetic")
+
+    async def connect(*_args: object, **_kwargs: object) -> FakeConnection:
+        return connection
+
+    monkeypatch.setattr(transport_module.asyncssh, "connect", connect)
+    provider = EphemeralCredentialProvider(
+        "ephemeral-live",
+        Credential(username="readonly", secret="test-" + "only", kind=CredentialKind.PASSWORD),
+    )
+    transport = FortiOSSSHTransport(make_device(), provider, known_hosts_data=b"known")
+
+    output = await transport.execute_catalog(
+        FortiOSCatalogInvocation(command_id="fortios.execute.cpu.show")
+    )
+
+    assert output == "CPU status: synthetic"
+    assert any("execute cpu show" in write for write in connection.process.stdin.writes)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "command_id",
+    [
+        "fortios.config.system.interface",
+        "fortios.execute.reboot",
+        "fortios.execute.ping",
+        "fortios.execute.not-documented",
+    ],
+)
+async def test_transport_defense_in_depth_rejects_non_promoted_catalog_ids(
+    command_id: str,
+) -> None:
+    class NeverResolveProvider:
+        async def resolve(self, _reference: str) -> Credential:
+            raise AssertionError("credential resolution must not occur")
+
+    transport = FortiOSSSHTransport(
+        make_device(),
+        NeverResolveProvider(),  # type: ignore[arg-type]
+        known_hosts_data=b"known",
+    )
+
+    with pytest.raises(FortiOSCommandError, match="catalog"):
+        await transport.execute_catalog(FortiOSCatalogInvocation(command_id=command_id))

@@ -6,6 +6,7 @@ import asyncio
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import asyncssh
 
@@ -13,6 +14,9 @@ from netsage.credentials import CredentialKind, CredentialProvider
 from netsage.drivers.fortios.commands import FortiOSRequest
 from netsage.models import DeviceRef, Platform
 from netsage.security import SecretRedactor
+
+if TYPE_CHECKING:
+    from netsage.drivers.fortios.catalog.execution_models import FortiOSCatalogInvocation
 
 _ANSI_ESCAPE = re.compile(r"\x1b(?:[@-_][0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))")
 _PAGER_MARKER = re.compile(r"(?i)--\s*more\s*--")
@@ -43,6 +47,14 @@ class FortiOSHostKeyError(FortiOSTransportError):
 
 
 class FortiOSCommandError(FortiOSTransportError):
+    pass
+
+
+class FortiOSCommandTimeoutError(FortiOSCommandError):
+    pass
+
+
+class FortiOSOutputLimitError(FortiOSCommandError):
     pass
 
 
@@ -104,6 +116,39 @@ class FortiOSSSHTransport:
         if not requests:
             return ()
         rendered = tuple(request.render() for request in requests)
+        return await self._execute_rendered(rendered)
+
+    async def execute_catalog(self, request: FortiOSCatalogInvocation) -> str:
+        """Execute only a manifest-promoted ID; never accept a caller command string."""
+
+        from netsage.drivers.fortios.catalog.models import (
+            FortiOSExecutionDisposition,
+            FortiOSExecutionSupport,
+        )
+        from netsage.drivers.fortios.catalog.registry import (
+            FortiOSCatalogError,
+            FortiOSCommandRegistry,
+        )
+        from netsage.policies import OperationClass
+
+        registry = FortiOSCommandRegistry()
+        try:
+            definition = registry.get(request.command_id)
+            if (
+                definition.command_class is not OperationClass.READ_ONLY
+                or definition.execution_disposition is not FortiOSExecutionDisposition.EXECUTABLE
+                or definition.execution_support is not FortiOSExecutionSupport.SANITIZED_TEXT
+            ):
+                raise FortiOSCommandError("FortiOS catalog command is not executable")
+            rendered = registry.render(request.command_id, request.arguments)
+        except FortiOSCommandError:
+            raise
+        except (FortiOSCatalogError, KeyError, ValueError) as error:
+            raise FortiOSCommandError("FortiOS catalog request is invalid") from error
+        (output,) = await self._execute_rendered((rendered,))
+        return output
+
+    async def _execute_rendered(self, rendered: Sequence[str]) -> tuple[str, ...]:
         credential = await self._credential_provider.resolve(str(self._device.credential_ref))
         if credential.kind is not CredentialKind.PASSWORD:
             raise FortiOSAuthenticationError("FortiOS SSH currently requires a password credential")
@@ -167,7 +212,9 @@ class FortiOSSSHTransport:
                 stdout = await self._read_until_prompt(process, acknowledge_paging=True)
                 process.stdin.write("exit\n")
                 await process.stdin.drain()
-        except (OSError, asyncssh.Error, TimeoutError) as error:
+        except TimeoutError as error:
+            raise FortiOSCommandTimeoutError("FortiOS command execution timed out") from error
+        except (OSError, asyncssh.Error) as error:
             raise FortiOSCommandError("FortiOS command execution failed") from error
         return stdout
 
@@ -190,7 +237,7 @@ class FortiOSSSHTransport:
                 raise FortiOSCommandError("FortiOS shell closed before returning a prompt")
             output_length += len(chunk)
             if output_length > self._max_output_characters:
-                raise FortiOSCommandError("FortiOS command output exceeded the safety limit")
+                raise FortiOSOutputLimitError("FortiOS command output exceeded the safety limit")
             chunks.append(chunk)
             output = "".join(chunks)
             visible_output = _ANSI_ESCAPE.sub("", output).replace("\r\n", "\n").replace("\r", "\n")

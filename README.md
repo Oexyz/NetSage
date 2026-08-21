@@ -31,7 +31,8 @@ shell, password, private-key, or API-token access.
 | Supported | Core architecture | Typed network models, capabilities, validated inventory, Observe policy, redaction, in-memory audit events, and fake driver |
 | Supported | Core contracts | Network drivers, AI providers, credential isolation, and structured broker tools |
 | Experimental | FortiGate | Fixture- and live-verified read-only SSH facts, interfaces, VLANs, ARP, routes, health, firewall policies, ping, and traceroute |
-| Experimental | FortiOS command knowledge | Generated 7.2.13 catalog with 19,030 source-derived classified and policy-aware definitions; only 2 are structured executable/typed diagnostics |
+| Experimental | FortiOS command knowledge | Generated 7.2.13 catalog with 19,030 source-derived classified and policy-aware definitions |
+| Experimental | FortiOS safe catalog execution | 515 of 1,049 READ_ONLY definitions promoted to bounded, audited `SANITIZED_TEXT`; 362 require review and 172 are non-executable |
 | Experimental | Interactive shell | No-argument `netsage` REPL dispatching the same Typer handlers with no OS-shell fallback |
 | Experimental | Evidence and deterministic investigations | Typed provenance, in-memory evidence, partial-failure handling, and FortiGate analysis without AI |
 | Experimental | Secure local onboarding | Versioned non-secret state, OS-keyring passwords, persistent SSH fingerprint trust, and FortiOS Device-ID workflows |
@@ -130,6 +131,7 @@ netsage> devices
 netsage> investigate fortigate-example
 netsage> ask fortigate-example "Check routing."
 netsage> fortios commands search route
+netsage> fortios run fortigate-example fortios.execute.cpu.show --dry-run
 netsage> exit
 ```
 
@@ -140,6 +142,7 @@ netsage devices
 netsage investigate fortigate-example
 netsage ask fortigate-example "Check routing."
 netsage fortios commands search route
+netsage fortios run fortigate-example fortios.execute.cpu.show --dry-run
 ```
 
 The interactive prompt is not a system shell. Unknown inputs such as `whoami`,
@@ -220,6 +223,7 @@ netsage audit --limit N
 netsage fortios commands search QUERY
 netsage fortios commands show COMMAND_ID
 netsage fortios commands coverage
+netsage fortios run DEVICE COMMAND_ID [--arg NAME=VALUE] [--dry-run] [--json]
 netsage ai status
 netsage ai openai status|login|logout|models|configure
 netsage ask DEVICE "question"
@@ -269,14 +273,21 @@ generated runtime manifest. Current measured coverage is:
 - 55 explicitly accounted PDF conversion/non-command artifacts;
 - 19,030 discovered and catalogued definitions (100% generator coverage);
 - 1,049 read-only, 2,758 diagnostic, 14,390 configuration, and 833 destructive;
-- 2 structured executable commands with typed parsers; 19,028 catalog-only;
-- 0 executable in default Observe because the two executable entries are
-  policy-controlled diagnostics.
+- 515 READ_ONLY definitions safely executable as bounded `SANITIZED_TEXT`;
+- 362 READ_ONLY definitions require review and 172 are non-executable;
+- 2 existing structured diagnostic commands with typed parsers; all 2,758
+  diagnostics remain denied by default through Catalog Execution;
+- 0 configuration and 0 destructive definitions executable;
+- 18,513 catalog-only definitions.
 
 This is complete command knowledge, not complete FortiOS execution or parser
 support. Configuration/destructive definitions remain denied, the SSH transport
 keeps its existing closed allowlist, and the catalog is not exposed wholesale to
-AI. See [FortiOS command catalog](docs/fortios-command-catalog.md) and the
+AI. Safe expert execution accepts only a logical Device ID, trusted Command ID,
+and validated named arguments; output is redacted, bounded, untrusted, audited,
+terminal-only, and never automatic Evidence. See
+[FortiOS command catalog](docs/fortios-command-catalog.md),
+[catalog execution](docs/fortios-catalog-execution.md), and the
 [generated coverage report](docs/fortios-command-coverage.md).
 
 The separate AI-assisted command selects its runtime automatically:
@@ -366,7 +377,7 @@ and direct OpenAI API fallback.
 - Credential resolution exclusively inside the trusted connection layer
 - Capability-aware Broker tools and sanitized synthetic fixtures
 
-### FortiOS CLI coverage and interactive shell — current milestone
+### FortiOS CLI coverage and interactive shell — complete
 
 - Deterministic source extractor and compressed, lazily loaded runtime manifest
 - 19,030 source-derived definitions with class, capability, arguments, and traceability
@@ -374,6 +385,16 @@ and direct OpenAI API fallback.
 - Existing transport allowlist retained; no generic CLI execution
 - Interactive no-argument shell over the same Typer command handlers
 - Safe quoting, help, exit/quit, EOF/Ctrl+C, and explicit OS-command rejection
+
+### FortiOS read-only catalog execution — current milestone
+
+- Deterministic disposition for all 1,049 READ_ONLY definitions
+- 515 promoted one-shot commands; 362 require review; 172 non-executable
+- ID-only typed rendering with no arbitrary CLI string surface
+- Existing host-key, credential, SSH, paging, timeout, and output-limit reuse
+- Mandatory Observe authorization, double redaction, bounded untrusted text, and Audit
+- One-shot and REPL `fortios run`, dry-run, and secret-free JSON output
+- No AI promotion, Evidence creation, text History, diagnostic auto-promotion, or changes
 
 ### Evidence and deterministic investigation — complete
 

@@ -20,6 +20,9 @@ from netsage.drivers.fortios.catalog.models import (
 
 _MANIFEST_NAME = "fortios_7_2_13.json.gz"
 _SAFE_TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/@,+%-]{0,511}$")
+_SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
+_SAFE_PROTOCOL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$")
+_MAC_ADDRESS = re.compile(r"^(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
 _INTEGER_ADAPTER: TypeAdapter[int] = TypeAdapter(int)
 
 
@@ -32,6 +35,10 @@ class UnknownFortiOSCommandError(FortiOSCatalogError):
 
 
 class FortiOSCommandRenderError(FortiOSCatalogError):
+    pass
+
+
+class FortiOSCommandArgumentError(FortiOSCommandRenderError):
     pass
 
 
@@ -84,7 +91,7 @@ class FortiOSCommandRegistry:
             if argument.required and argument.name not in supplied
         }
         if missing or not supplied.issubset(expected):
-            raise FortiOSCommandRenderError("FortiOS command arguments do not match definition")
+            raise FortiOSCommandArgumentError("FortiOS command arguments do not match definition")
         rendered = definition.syntax
         for argument in definition.arguments:
             if argument.name not in arguments:
@@ -111,54 +118,80 @@ def load_manifest() -> FortiOSCommandManifest:
 
 def _render_argument(argument: FortiOSArgumentDefinition, value: object) -> str:
     if argument.sensitive:
-        raise FortiOSCommandRenderError("Sensitive FortiOS arguments cannot be rendered")
+        raise FortiOSCommandArgumentError("Sensitive FortiOS arguments cannot be rendered")
     if argument.kind in {FortiOSArgumentKind.INTEGER, FortiOSArgumentKind.POLICY_ID}:
         try:
             integer = _INTEGER_ADAPTER.validate_python(value)
         except ValidationError as error:
-            raise FortiOSCommandRenderError("FortiOS integer argument is invalid") from error
-        if integer < 0:
-            raise FortiOSCommandRenderError("FortiOS integer argument must not be negative")
+            raise FortiOSCommandArgumentError("FortiOS integer argument is invalid") from error
+        _validate_numeric_bounds(argument, integer)
         return str(integer)
     if argument.kind is FortiOSArgumentKind.PORT:
         try:
             port = _INTEGER_ADAPTER.validate_python(value)
         except ValidationError as error:
-            raise FortiOSCommandRenderError("FortiOS port argument is invalid") from error
-        if port < 1 or port > 65535:
-            raise FortiOSCommandRenderError("FortiOS port argument is out of range")
+            raise FortiOSCommandArgumentError("FortiOS port argument is invalid") from error
+        _validate_numeric_bounds(argument, port)
         return str(port)
     text = str(value)
     if argument.kind is FortiOSArgumentKind.IPV4_ADDRESS:
         try:
             parsed = ip_address(text)
         except ValueError as error:
-            raise FortiOSCommandRenderError("FortiOS IPv4 argument is invalid") from error
+            raise FortiOSCommandArgumentError("FortiOS IPv4 argument is invalid") from error
         if not isinstance(parsed, IPv4Address):
-            raise FortiOSCommandRenderError("FortiOS IPv4 argument is invalid")
+            raise FortiOSCommandArgumentError("FortiOS IPv4 argument is invalid")
         return str(parsed)
     if argument.kind is FortiOSArgumentKind.IPV6_ADDRESS:
         try:
             parsed = ip_address(text)
         except ValueError as error:
-            raise FortiOSCommandRenderError("FortiOS IPv6 argument is invalid") from error
+            raise FortiOSCommandArgumentError("FortiOS IPv6 argument is invalid") from error
         if not isinstance(parsed, IPv6Address):
-            raise FortiOSCommandRenderError("FortiOS IPv6 argument is invalid")
+            raise FortiOSCommandArgumentError("FortiOS IPv6 argument is invalid")
         return str(parsed)
     if argument.kind is FortiOSArgumentKind.IP_ADDRESS:
         try:
             return str(ip_address(text))
         except ValueError as error:
-            raise FortiOSCommandRenderError("FortiOS IP argument is invalid") from error
+            raise FortiOSCommandArgumentError("FortiOS IP argument is invalid") from error
     if argument.kind is FortiOSArgumentKind.NETWORK:
         try:
             return str(ip_network(text, strict=False))
         except ValueError as error:
-            raise FortiOSCommandRenderError("FortiOS network argument is invalid") from error
+            raise FortiOSCommandArgumentError("FortiOS network argument is invalid") from error
     if argument.kind in {FortiOSArgumentKind.ENUM, FortiOSArgumentKind.BOOLEAN}:
         if text not in argument.choices:
-            raise FortiOSCommandRenderError("FortiOS enum argument is invalid")
+            raise FortiOSCommandArgumentError("FortiOS enum argument is invalid")
         return text
+    if argument.kind is FortiOSArgumentKind.HOSTNAME:
+        if len(text) > 253 or not all(
+            label
+            and len(label) <= 63
+            and re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?", label)
+            for label in text.rstrip(".").split(".")
+        ):
+            raise FortiOSCommandArgumentError("FortiOS hostname argument is invalid")
+        return text
+    if argument.kind in {FortiOSArgumentKind.INTERFACE, FortiOSArgumentKind.VDOM}:
+        if not _SAFE_IDENTIFIER.fullmatch(text):
+            raise FortiOSCommandArgumentError("FortiOS identifier argument is invalid")
+        return text
+    if argument.kind is FortiOSArgumentKind.PROTOCOL:
+        if not _SAFE_PROTOCOL.fullmatch(text):
+            raise FortiOSCommandArgumentError("FortiOS protocol argument is invalid")
+        return text
+    if argument.kind is FortiOSArgumentKind.MAC_ADDRESS:
+        normalized = text.replace("-", ":").lower()
+        if not _MAC_ADDRESS.fullmatch(normalized):
+            raise FortiOSCommandArgumentError("FortiOS MAC address argument is invalid")
+        return normalized
     if not _SAFE_TOKEN.fullmatch(text):
-        raise FortiOSCommandRenderError("FortiOS string argument contains unsafe characters")
+        raise FortiOSCommandArgumentError("FortiOS string argument contains unsafe characters")
     return text
+
+
+def _validate_numeric_bounds(argument: FortiOSArgumentDefinition, value: int) -> None:
+    minimum = 0 if argument.minimum is None else argument.minimum
+    if value < minimum or (argument.maximum is not None and value > argument.maximum):
+        raise FortiOSCommandArgumentError("FortiOS numeric argument is out of range")
