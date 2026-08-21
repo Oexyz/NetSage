@@ -9,6 +9,10 @@ from netsage.agent.models import (
 )
 from netsage.agent.report import render_agent_report
 from netsage.agent.runtime import AgentRuntime
+from netsage.agent.service import (
+    FortiOSAIInvestigationService,
+    FortiOSOpenAIInvestigationService,
+)
 
 __all__ = [
     "AgentErrorCategory",
@@ -17,5 +21,7 @@ __all__ = [
     "AgentRuntime",
     "AgentRuntimeLimits",
     "AgentRuntimeState",
+    "FortiOSAIInvestigationService",
+    "FortiOSOpenAIInvestigationService",
     "render_agent_report",
 ]

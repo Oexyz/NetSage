@@ -45,6 +45,8 @@ jobs:
         run: |
           & "artifacts/${{ matrix.asset }}" --version
           & "artifacts/${{ matrix.asset }}" --help
+          & "artifacts/${{ matrix.asset }}" ai openai status
+          & "artifacts/${{ matrix.asset }}" ask --help
       - name: Smoke test executable (Linux)
         if: runner.os == 'Linux'
         shell: bash
@@ -52,6 +54,8 @@ jobs:
           chmod +x "artifacts/${{ matrix.asset }}"
           "artifacts/${{ matrix.asset }}" --version
           "artifacts/${{ matrix.asset }}" --help
+          "artifacts/${{ matrix.asset }}" ai openai status
+          "artifacts/${{ matrix.asset }}" ask --help
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset }}

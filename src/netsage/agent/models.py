@@ -49,9 +49,11 @@ class AgentInvestigationReport(BaseModel):
 
     investigation_id: UUID
     device_id: str
+    provider: str
     state: AgentRuntimeState
     deterministic_findings: tuple[Finding, ...]
     ai_assessment: AIFinalResponse | None = None
     tool_results: tuple[AIToolResult, ...] = ()
     error_category: AgentErrorCategory | None = None
+    provider_error_code: str | None = None
     configuration_changed: Literal[False] = False

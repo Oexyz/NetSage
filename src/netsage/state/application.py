@@ -25,6 +25,9 @@ class ApplicationSettingsStore:
     def load(self) -> ApplicationSettingsDocument:
         return load_yaml_document(self._path, ApplicationSettingsDocument)
 
+    def save(self, document: ApplicationSettingsDocument) -> None:
+        save_yaml_document(self._path, document)
+
 
 class LocalState:
     """Small facade over separate settings, inventory, credential, and trust stores."""

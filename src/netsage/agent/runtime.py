@@ -57,6 +57,7 @@ class AgentRuntime:
         evidence_store: EvidenceStore,
         context_builder: AIContextBuilder,
         limits: AgentRuntimeLimits | None = None,
+        provider_name: str = "provider",
     ) -> None:
         self._provider = provider
         self._broker = broker
@@ -64,6 +65,7 @@ class AgentRuntime:
         self._evidence_store = evidence_store
         self._context_builder = context_builder
         self._limits = limits or AgentRuntimeLimits()
+        self._provider_name = provider_name
 
     async def run(
         self,
@@ -104,17 +106,21 @@ class AgentRuntime:
                     tools=tools,
                     tool_results=tuple(results),
                 )
-            except AIProviderError:
+            except AIProviderError as error:
                 return self._failed(
-                    deterministic_report, results, AgentErrorCategory.PROVIDER_FAILED
+                    deterministic_report,
+                    results,
+                    AgentErrorCategory.PROVIDER_FAILED,
+                    provider_error_code=error.code,
                 )
             if isinstance(response, AIFinalResponse):
-                error = self._validate_final(response, deterministic_report, evidence)
-                if error is not None:
-                    return self._failed(deterministic_report, results, error)
+                validation_error = self._validate_final(response, deterministic_report, evidence)
+                if validation_error is not None:
+                    return self._failed(deterministic_report, results, validation_error)
                 return AgentInvestigationReport(
                     investigation_id=investigation_id,
                     device_id=device.name,
+                    provider=self._provider_name,
                     state=AgentRuntimeState.COMPLETED,
                     deterministic_findings=deterministic_report.findings,
                     ai_assessment=response,
@@ -279,23 +285,27 @@ class AgentRuntime:
                 return AgentErrorCategory.DETERMINISTIC_CONTRADICTION
         return None
 
-    @staticmethod
     def _failed(
+        self,
         report: InvestigationReport,
         results: Sequence[AIToolResult],
         category: AgentErrorCategory,
+        *,
+        provider_error_code: str | None = None,
     ) -> AgentInvestigationReport:
         return AgentInvestigationReport(
             investigation_id=report.investigation.investigation_id,
             device_id=report.investigation.device_id,
+            provider=self._provider_name,
             state=AgentRuntimeState.FAILED,
             deterministic_findings=report.findings,
             tool_results=tuple(results),
             error_category=category,
+            provider_error_code=provider_error_code,
         )
 
-    @staticmethod
     def _limited(
+        self,
         report: InvestigationReport,
         results: Sequence[AIToolResult],
         category: AgentErrorCategory,
@@ -303,6 +313,7 @@ class AgentRuntime:
         return AgentInvestigationReport(
             investigation_id=report.investigation.investigation_id,
             device_id=report.investigation.device_id,
+            provider=self._provider_name,
             state=AgentRuntimeState.LIMIT_REACHED,
             deterministic_findings=report.findings,
             tool_results=tuple(results),

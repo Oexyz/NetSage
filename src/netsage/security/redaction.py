@@ -37,6 +37,7 @@ _TEXT_PATTERNS = (
         r"(\s*[:=]\s*)\S+"
     ),
     re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b"),
+    re.compile(r"\bsk-[A-Za-z0-9_-]{12,}\b"),
 )
 
 

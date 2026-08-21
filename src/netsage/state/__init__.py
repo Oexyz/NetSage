@@ -10,7 +10,12 @@ from netsage.state.atomic import (
     StateWriteError,
     atomic_write_yaml,
 )
-from netsage.state.documents import ApplicationSettingsDocument
+from netsage.state.documents import (
+    AISettings,
+    ApplicationSettingsDocument,
+    OpenAIProviderSettings,
+    OpenAIReasoningEffort,
+)
 from netsage.state.paths import StatePaths, default_state_directory
 
 if TYPE_CHECKING:
@@ -63,11 +68,14 @@ def __getattr__(name: str) -> object:
 
 __all__ = [
     "SCHEMA_VERSION",
+    "AISettings",
     "ApplicationSettingsDocument",
     "ApplicationSettingsStore",
     "DuplicateSSHTrustError",
     "InvalidStateReferenceError",
     "LocalState",
+    "OpenAIProviderSettings",
+    "OpenAIReasoningEffort",
     "SSHHostIdentityChangedError",
     "SSHHostTrustDocument",
     "SSHHostTrustManager",
