@@ -45,6 +45,27 @@ shell, password, private-key, or API-token access.
 | Planned | Additional AI providers | Anthropic Claude, Ollama, and compatible endpoints |
 | Planned | Additional vendors | Cisco, Arista, Juniper, and others |
 
+## Real-world validation
+
+### Intermittent WAN failure
+
+In a real authorized production vessel network, internet connectivity repeatedly
+failed only after several hours of operation. NetSage correlated FortiGate logs,
+interface state, historical events, routing and network state, and the timing of
+WAN events. In approximately five minutes of analysis, it produced a strong
+indication that the likely fault domain was the physical WAN link. A subsequent
+manual inspection confirmed the root cause: a faulty WAN cable.
+
+- Approximate NetSage analysis time: **~5 minutes**
+- Estimated comparable manual troubleshooting effort: **~3 hours**
+- Confirmed root cause: **faulty WAN cable**
+
+This is one operational case, not a controlled benchmark. NetSage is intended to
+help experienced administrators correlate large volumes of network observations
+and reach the relevant fault domain faster, not replace their judgment or final
+physical verification. See the anonymized
+[technical case study](docs/case-studies/intermittent-wan-failure.md).
+
 ## Security model
 
 NetSage treats device output as untrusted input. The AI-facing boundary exposes
