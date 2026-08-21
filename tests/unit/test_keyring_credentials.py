@@ -234,3 +234,31 @@ def test_unreferenced_credential_remove_deletes_metadata_and_secret(tmp_path: Pa
     service.remove_profile("fortigate-readonly")
     assert state.credentials.load().profiles == {}
     assert secrets.values == {}
+
+
+def test_referenced_profile_secret_rotation_preserves_metadata_and_replaces_value(
+    tmp_path: Path,
+) -> None:
+    state = LocalState(StatePaths.from_root(tmp_path / "state"))
+    state.initialize()
+    secrets = MemorySecretStore()
+    service = CredentialProfileService(
+        profiles=state.credentials,
+        secrets=secrets,
+        inventory=state.inventory,
+    )
+    service.add_password_profile(
+        name="fortigate-readonly",
+        username="netsage-ro",
+        secret="old" + "-secret",
+    )
+    metadata_before = state.paths.credential_profiles.read_bytes()
+    service.rotate_secret("fortigate-readonly", "new" + "-secret")
+
+    assert secrets.values["fortigate-readonly"] == "new-secret"
+    assert state.paths.credential_profiles.read_bytes() == metadata_before
+    serialized = "".join(
+        path.read_text(encoding="utf-8") for path in state.paths.root.glob("*.yaml")
+    )
+    assert "old-secret" not in serialized
+    assert "new-secret" not in serialized

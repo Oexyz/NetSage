@@ -27,12 +27,18 @@ netsage credentials add
 netsage credentials list
 netsage credentials show fortigate-readonly
 netsage credentials remove fortigate-readonly
+netsage credentials rotate fortigate-readonly
 ```
 
 Add prompts for the password with hidden input and confirmation. Passwords are
 never accepted as ordinary CLI flags or environment variables. List and show
 read metadata only; show prints `Secret: stored securely` without resolving the
 secret. There is no reveal or get-password command.
+
+Rotate replaces only the current OS-keyring value after hidden confirmation. It
+does not read the old value for display, change profile metadata, store password
+history, or modify the FortiGate password. Device-side password rotation remains
+an external administrative action.
 
 Removal is rejected while any Device references the profile. Credential creation
 stores the secret first and atomically saves metadata second; if metadata saving

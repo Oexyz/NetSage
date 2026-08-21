@@ -84,3 +84,8 @@ establish universal FortiOS compatibility.
 The complete health-investigation flow has been live-verified against an
 authorized FortiOS 7.2.13 device. The verification persisted no credential,
 device address, hostname, interface data, evidence payload, or raw capture.
+
+Stored Device-ID investigations now persist sanitized Report, Evidence, and safe
+Audit metadata locally by default. `netsage investigations` and
+`netsage investigation show UUID` reload typed reports without a device
+connection. `netsage investigate DEVICE --ephemeral` writes no History rows.

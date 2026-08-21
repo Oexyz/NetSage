@@ -33,6 +33,7 @@ class StatePaths:
     inventory: Path
     credential_profiles: Path
     host_trust: Path
+    history: Path
 
     @classmethod
     def from_root(cls, root: Path) -> "StatePaths":
@@ -43,6 +44,7 @@ class StatePaths:
             inventory=normalized / "inventory.yaml",
             credential_profiles=normalized / "credentials.yaml",
             host_trust=normalized / "known-hosts.yaml",
+            history=normalized / "history.sqlite3",
         )
 
     @classmethod

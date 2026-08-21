@@ -52,7 +52,32 @@ factory reuses `SecretRedactor`, retains typed normalized payloads and explicit
 evidence store rejects values which still contain a recognized or explicitly
 known secret. Collection failures record bounded categories rather than raw
 exception messages. Evidence is not an audit log and contains no credential
-reference or transport secret.
+reference or transport secret. In-memory Evidence remains available for
+ephemeral workflows; normal Device-ID investigations can persist the same typed,
+sanitized envelopes locally.
+
+## Persistent operational history
+
+`history.sqlite3` is stored beside the existing user-level state. It may contain
+sensitive operational data including normalized IP addresses, interfaces, routes,
+VLANs, ARP entries, firewall policies, health observations, findings, and
+diagnoses. It never contains raw CLI output, Credential material, keyring secrets,
+private keys, auth headers, or resolved credential references.
+
+History is protected by the operating system's user-level file permissions, not
+application-level database encryption. POSIX uses a `0700` state directory and
+`0600` database; Windows relies on the current user's Local AppData ACL. NetSage
+does not upload, synchronize, or send telemetry from History.
+
+Broker Audit is append-only through the normal application API and stores safe
+arguments, result categories, authorization decisions, durations, and bounded
+details. It never stores CommandResult output. Deleting an Investigation cascades
+its Evidence but retains Audit. No automatic Audit retention policy exists yet.
+
+Normal `investigate DEVICE` persists sanitized Report, Evidence, and Audit by
+default. `--ephemeral` selects in-memory Evidence and Audit and creates no History
+rows. Persistent write failures are surfaced and never silently downgraded to an
+in-memory fallback.
 
 The FortiOS live-test path discovers the SSH server key before asking for a
 credential and pins that key in memory after explicit user confirmation. Its

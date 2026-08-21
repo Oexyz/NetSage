@@ -5,6 +5,7 @@ from uuid import UUID
 import pytest
 from typer.testing import CliRunner
 
+from netsage.broker import AuditEvent, AuditResult
 from netsage.cli import state_commands
 from netsage.cli.main import app
 from netsage.credentials import (
@@ -13,6 +14,7 @@ from netsage.credentials import (
     CredentialSecretUnavailableError,
 )
 from netsage.drivers.fortios import SSHHostKeyPin
+from netsage.history import SQLiteAuditSink, SQLiteInvestigationStore
 from netsage.investigations import (
     Investigation,
     InvestigationKind,
@@ -21,6 +23,7 @@ from netsage.investigations import (
 )
 from netsage.models import DeviceFacts, DeviceRef
 from netsage.onboarding import CheckStatus, DeviceReadiness, DeviceTestResult
+from netsage.policies import AuthorizationDecision
 from netsage.state import LocalState, SSHHostTrustRecord, StatePaths
 
 runner = CliRunner()
@@ -49,9 +52,10 @@ class MemorySecretStore(CredentialSecretStore):
 
 
 class FakeDeviceService:
-    def __init__(self, device: DeviceRef, trust: SSHHostTrustRecord) -> None:
+    def __init__(self, device: DeviceRef, trust: SSHHostTrustRecord, state: LocalState) -> None:
         self.device = device
         self.trust = trust
+        self.state = state
         self.removed = False
         self.trust_replaced = False
         self.added = False
@@ -88,9 +92,9 @@ class FakeDeviceService:
     def replace_trust(self, _device: DeviceRef, _pin: SSHHostKeyPin) -> None:
         self.trust_replaced = True
 
-    async def investigate(self, _name: str) -> InvestigationReport:
+    async def investigate(self, _name: str, *, persist: bool = True) -> InvestigationReport:
         now = datetime(2026, 8, 20, 20, 30, tzinfo=UTC)
-        return InvestigationReport(
+        report = InvestigationReport(
             investigation=Investigation(
                 investigation_id=UUID(int=100),
                 device_id=self.device.name,
@@ -101,6 +105,9 @@ class FakeDeviceService:
             status=InvestigationStatus.HEALTHY,
             evidence_ids=(),
         )
+        if persist:
+            SQLiteInvestigationStore(self.state.history).add(report)
+        return report
 
 
 def ready_result() -> DeviceTestResult:
@@ -175,6 +182,15 @@ def test_credential_cli_add_list_show_remove_never_reveals_secret(
     assert CANARY not in state.paths.credential_profiles.read_text(encoding="utf-8")
     assert "reveal" not in runner.invoke(app, ["credentials", "--help"]).stdout
 
+    rotated = runner.invoke(
+        app,
+        ["credentials", "rotate", "fortigate-readonly"],
+        input="replacement-secret\nreplacement-secret\n",
+    )
+    assert rotated.exit_code == 0
+    assert secrets.values["fortigate-readonly"] == "replacement-secret"
+    assert "replacement-secret" not in state.paths.credential_profiles.read_text(encoding="utf-8")
+
     removed = runner.invoke(
         app,
         ["credentials", "remove", "fortigate-readonly"],
@@ -193,7 +209,7 @@ def test_device_cli_add_list_show_test_investigate_remove_and_trust_reset(
     state.credentials.add(CredentialProfile(name="fortigate-readonly", username="netsage-ro"))
     device, trust = fake_device()
     state.host_trust.add(trust)
-    service = FakeDeviceService(device, trust)
+    service = FakeDeviceService(device, trust, state)
     monkeypatch.setattr(state_commands, "_state", lambda: state)
     monkeypatch.setattr(state_commands, "_device_service", lambda _state: service)
 
@@ -233,6 +249,7 @@ def test_device_cli_add_list_show_test_investigate_remove_and_trust_reset(
     assert "stored" in shown.stdout
     assert "READY" in tested.stdout
     assert "No configuration changes were made" in investigated.stdout
+    assert "Investigation saved" in investigated.stdout
     assert service.trust_replaced is True
     assert service.removed is True
     assert CANARY not in "".join(
@@ -258,7 +275,7 @@ def test_device_add_does_not_authenticate_or_persist_before_host_key_review(
     state = isolated_state(tmp_path)
     state.credentials.add(CredentialProfile(name="fortigate-readonly", username="netsage-ro"))
     device, trust = fake_device()
-    service = FakeDeviceService(device, trust)
+    service = FakeDeviceService(device, trust, state)
     monkeypatch.setattr(state_commands, "_state", lambda: state)
     monkeypatch.setattr(state_commands, "_device_service", lambda _state: service)
 
@@ -270,3 +287,63 @@ def test_device_add_does_not_authenticate_or_persist_before_host_key_review(
     assert result.exit_code == 1
     assert "Device was not saved" in result.stdout
     assert service.added is False
+
+
+def test_ephemeral_investigation_writes_no_history(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state = isolated_state(tmp_path)
+    device, trust = fake_device()
+    service = FakeDeviceService(device, trust, state)
+    monkeypatch.setattr(state_commands, "_state", lambda: state)
+    monkeypatch.setattr(state_commands, "_device_service", lambda _state: service)
+
+    result = runner.invoke(app, ["investigate", device.name, "--ephemeral"])
+    assert result.exit_code == 0
+    assert "History persistence: disabled" in result.stdout
+    assert SQLiteInvestigationStore(state.history).list() == ()
+    assert SQLiteAuditSink(state.history).list() == ()
+
+
+def test_history_and_audit_cli_reload_show_and_remove_without_network(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state = isolated_state(tmp_path)
+    device, trust = fake_device()
+    service = FakeDeviceService(device, trust, state)
+    monkeypatch.setattr(state_commands, "_state", lambda: state)
+    monkeypatch.setattr(state_commands, "_device_service", lambda _state: service)
+    run = runner.invoke(app, ["investigate", device.name])
+    report_id = SQLiteInvestigationStore(state.history).list()[0].investigation_id
+    SQLiteAuditSink(state.history).record(
+        AuditEvent(
+            timestamp=datetime(2026, 8, 21, 8, 0, tzinfo=UTC),
+            user="operator",
+            ai_provider=None,
+            tool="get_interfaces",
+            device=device.name,
+            safe_arguments={"device": device.name},
+            result=AuditResult.SUCCESS,
+            duration_ms=1,
+            authorization=AuthorizationDecision(allowed=True, reason="read only"),
+        )
+    )
+
+    listed = runner.invoke(app, ["investigations"])
+    shown = runner.invoke(app, ["investigation", "show", str(report_id)])
+    audit = runner.invoke(app, ["audit", "--limit", "10"])
+    removed = runner.invoke(
+        app,
+        ["investigation", "remove", str(report_id)],
+        input="y\n",
+    )
+    for result in (run, listed, shown, audit, removed):
+        assert result.exit_code == 0
+    assert str(report_id) in listed.stdout
+    assert "No configuration changes were made" in shown.stdout
+    assert "get_interfaces" in audit.stdout
+    assert "Audit events were retained" in removed.stdout
+    assert SQLiteInvestigationStore(state.history).list() == ()
+    assert len(SQLiteAuditSink(state.history).list()) == 1

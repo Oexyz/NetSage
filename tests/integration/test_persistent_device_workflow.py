@@ -18,6 +18,12 @@ from netsage.drivers.fortios import (
     FortiOSRequest,
     SSHHostKeyPin,
 )
+from netsage.history import (
+    HistoryDatabase,
+    SQLiteAuditSink,
+    SQLiteEvidenceStore,
+    SQLiteInvestigationStore,
+)
 from netsage.investigations import InvestigationStatus, render_investigation_report
 from netsage.models import DeviceRef
 from netsage.onboarding import (
@@ -165,6 +171,15 @@ async def test_persistent_reload_device_test_investigation_and_report(tmp_path: 
     rendered = render_investigation_report(report)
     assert "No configuration changes were made" in rendered
     assert CANARY not in rendered
+    history = SQLiteInvestigationStore(HistoryDatabase(paths.history))
+    persisted = history.get(report.investigation.investigation_id)
+    persisted_evidence = SQLiteEvidenceStore(HistoryDatabase(paths.history)).list_for_investigation(
+        report.investigation.investigation_id
+    )
+    persisted_audit = SQLiteAuditSink(HistoryDatabase(paths.history)).list()
+    assert persisted == report
+    assert len(persisted_evidence) == 4
+    assert len(persisted_audit) == 4
 
     serialized_state = "".join(
         path.read_text(encoding="utf-8") for path in paths.root.glob("*.yaml")
@@ -172,6 +187,7 @@ async def test_persistent_reload_device_test_investigation_and_report(tmp_path: 
     assert CANARY not in serialized_state
     assert "password:" not in serialized_state.casefold()
     assert "secret:" not in serialized_state.casefold()
+    assert CANARY.encode() not in paths.history.read_bytes()
 
 
 @pytest.mark.asyncio

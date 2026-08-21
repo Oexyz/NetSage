@@ -62,5 +62,7 @@ and device output are never copied. This distinction allows an investigation to
 differentiate a successfully observed empty route table from a route collection
 that failed.
 
-Persistence and raw-capture storage are intentionally not implemented in this
-milestone.
+The in-memory store remains available for unit tests and `--ephemeral` mode.
+Normal stored Device investigations persist the same typed envelopes through
+`SQLiteEvidenceStore`; loading revalidates the discriminated payload union. Raw
+capture storage remains intentionally unimplemented.

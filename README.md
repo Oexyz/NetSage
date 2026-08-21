@@ -33,6 +33,7 @@ shell, password, private-key, or API-token access.
 | Experimental | FortiGate | Fixture- and live-verified read-only SSH facts, interfaces, VLANs, ARP, routes, health, firewall policies, ping, and traceroute |
 | Experimental | Evidence and deterministic investigations | Typed provenance, in-memory evidence, partial-failure handling, and FortiGate analysis without AI |
 | Experimental | Secure local onboarding | Versioned non-secret state, OS-keyring passwords, persistent SSH fingerprint trust, and FortiOS Device-ID workflows |
+| Experimental | Persistent history | Local typed Investigation/Evidence history and append-only secret-free Broker Audit in SQLite |
 | In development | Network platforms | FortiSwitch, HP/HPE/ArubaOS-Switch, and Aruba AOS-CX |
 | In development | Security pipeline | Persistent audit and evidence storage |
 | Planned | AI providers | Codex, Anthropic Claude, Ollama, and OpenAI-compatible APIs |
@@ -80,6 +81,8 @@ uv run netsage device add
 uv run netsage devices
 uv run netsage device test fortigate-example
 uv run netsage investigate fortigate-example
+uv run netsage investigations
+uv run netsage audit --limit 20
 ```
 
 Device onboarding requires explicit SSH host-key review before authentication.
@@ -149,15 +152,26 @@ netsage --version
 netsage doctor
 netsage setup
 netsage credentials add|list|show|remove
+netsage credentials rotate PROFILE
 netsage device add|show|test|remove|trust-reset
 netsage devices
 netsage investigate DEVICE
+netsage investigate DEVICE --ephemeral
+netsage investigations
+netsage investigation show|remove UUID
+netsage audit --limit N
 ```
 
 `doctor` reports the local Python, Git, SSH, credential-store, and optional
 Docker state. Device list/show use only local metadata. Device test and
 investigate rediscover and validate stored SSH trust before resolving the
 keyring credential and connecting.
+
+Stored Device-ID investigations persist sanitized Report, normalized Evidence,
+and safe Audit metadata locally by default. History may contain sensitive network
+operational data. It is protected by user-level operating-system permissions, not
+application-level SQLite encryption. Use `--ephemeral` when no History should be
+written.
 
 The experimental FortiGate live test prompts for every connection value and
 keeps its password in process memory only:
@@ -232,7 +246,16 @@ AI-agent implementation at this stage.
 - OS-keyring password profiles with transactional metadata rollback
 - Persistent SSH fingerprint trust with changed-key rejection
 - FortiOS Device-ID add/list/show/test/remove/investigate workflows
-- Evidence and Audit remain in-memory
+- Credential and Device state remains separate from operational History
+
+### Persistent investigation history and audit — current milestone, complete
+
+- Standard-library SQLite schema v1 with foreign keys and typed reload
+- Transactional Report plus Evidence persistence
+- Independent append-only Broker Audit events
+- History list/show/remove and recent Audit CLI
+- Default persistent and explicit ephemeral Investigation modes
+- Defensive SecretRedactor checks before every persistent write
 
 ### Vendor and provider expansion — planned
 

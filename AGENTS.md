@@ -51,15 +51,16 @@ work is represented by the following commits on `main`:
 - `d3f9fc6 feat: add FortiOS read-only driver`
 - `5a57ce3 fix: support FortiOS performance memory totals`
 - `88ae210 feat: add deterministic evidence investigations`
+- `37e7619 feat: add secure FortiOS device onboarding`
 
 At the time of this handoff, local `main` matches `origin/main`, the repository is
 public, the latest GitHub Actions CI run on `main` succeeds, and no release tag or
 GitHub Release has been created yet. Do not claim downloadable release assets
 exist until a `v*` tag has successfully completed the release workflow.
 
-The local verification snapshot on 2026-08-20 is green: Ruff formatting and
-linting pass, strict mypy reports no issues in 60 source files, and pytest reports
-147 passing tests with 88.82% total coverage (the configured floor is 80%).
+The local verification snapshot on 2026-08-21 is green: Ruff formatting and
+linting pass, strict mypy reports no issues in 66 source files, and pytest reports
+160 passing tests with 88.14% total coverage (the configured floor is 80%).
 
 ### Development-machine bootstrap
 
@@ -118,9 +119,14 @@ The Typer/Rich CLI currently implements and tests:
   investigation using the same secure connection flow
 - `netsage setup`
 - `netsage credentials add|list|show|remove`
+- `netsage credentials rotate PROFILE`
 - `netsage device add|show|test|remove|trust-reset`
 - `netsage devices`
 - `netsage investigate DEVICE`
+- `netsage investigate DEVICE --ephemeral`
+- `netsage investigations`
+- `netsage investigation show|remove UUID`
+- `netsage audit --limit N`
 
 `doctor` reports Python, Git, SSH, OS credential-store, and optional Docker
 availability. Local state, credential metadata, SSH trust, and FortiOS Device-ID
@@ -135,6 +141,10 @@ The complete persistent workflow (`setup`, keyring credential, Device add/test,
 and stored investigation) is also live-verified. Real connection metadata exists
 only in the user's local state; no production values or raw captures belong in
 the repository.
+
+Persistent and ephemeral Investigation modes are live-verified. The local SQLite
+database successfully reloads typed Reports/Evidence and append-only Audit across
+processes; a byte scan found no credential material.
 
 ### Architecture contracts
 
@@ -162,8 +172,8 @@ The foundation has intentionally small, testable boundaries:
   validates declared arguments, inventory devices, and capabilities, applies
   Observe authorization, redacts results and audit arguments, and checks handler
   result identity.
-- `AuditEvent` and `InMemoryAuditSink` provide a non-persistent, secret-free audit
-  foundation. Persistent audit storage remains future work.
+- `AuditEvent` is persisted by append-only `SQLiteAuditSink` for normal Device
+  investigations; `InMemoryAuditSink` remains for tests and ephemeral mode.
 - `DeviceRef` stores non-secret device metadata, capabilities, and an opaque
   `CredentialReference`; `CommandResult` marks sanitized output as untrusted
   device data.
@@ -192,8 +202,9 @@ The foundation has intentionally small, testable boundaries:
 - Agent, topology, and incidents remain scaffolding only. No concrete AI provider
   or AI investigation runtime exists.
 - Local state uses four schema-versioned YAML documents for settings, Inventory,
-  credential metadata, and SSH fingerprints. Atomic writers never persist secret
-  material; Evidence, Audit, and Investigations remain in-memory.
+  credential metadata, and SSH fingerprints. `history.sqlite3` separately stores
+  typed sanitized Evidence/Reports and secret-free Audit with schema version 1,
+  foreign keys, transactions, and restrictive user-level permissions.
 - FortiOS onboarding verifies an unauthenticated discovered host key before
   keyring resolution/authentication, rejects changes, and persists a Device only
   after read-only facts succeed.
@@ -236,6 +247,8 @@ The foundation has intentionally small, testable boundaries:
   evidence and deterministic analysis boundaries.
 - `docs/local-state.md`, `docs/credentials.md`, and
   `docs/device-onboarding.md` document persistent state and onboarding.
+- `docs/history.md` and `docs/audit.md` document operational-data persistence,
+  non-encryption, transaction, deletion, and append-only boundaries.
 - `examples/inventory.example.yaml` uses documentation-only `192.0.2.0/24`
   addresses and opaque credential references. Never replace these with real
   infrastructure data.
@@ -286,7 +299,8 @@ src/netsage/
   credentials/      Profiles, OS-keyring passwords, and isolation contracts
   models/           Validated non-secret device and command-result models
   agent/            Future investigation orchestration
-  evidence/         Typed Broker-result evidence, provenance, and in-memory storage
+  evidence/         Typed Broker-result evidence, provenance, and store contract
+  history/          SQLite lifecycle, typed Evidence/Report stores, and Audit sink
   investigations/   Deterministic evidence-backed workflows and reports
   inventory/        Validated Inventory and atomic YAML persistence
   onboarding/       FortiOS Device-ID runtime, readiness, and CRUD workflows
@@ -378,7 +392,7 @@ Do not imply that the following exist, and do not add them incidentally:
 
 ## Next recommended milestone
 
-Not selected. Complete and review the Secure Local State & Device Onboarding
+Not selected. Complete and review the Persistent Investigation History & Audit
 Foundation before choosing another milestone. Do not automatically begin AI
 providers, additional vendors, discovery, topology, probes, persistent
 Evidence/Audit, or configuration work.

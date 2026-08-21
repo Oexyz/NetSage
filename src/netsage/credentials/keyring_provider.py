@@ -170,3 +170,9 @@ class CredentialProfileService:
                     "Credential removal failed and metadata rollback was unsuccessful"
                 ) from rollback_error
             raise CredentialTransactionError("Credential secret could not be removed") from error
+
+    def rotate_secret(self, name: str, new_secret: str) -> None:
+        """Replace only the OS-keyring value; metadata and devices remain unchanged."""
+
+        self._profiles.get(name)
+        self._secrets.set_secret(name, new_secret)

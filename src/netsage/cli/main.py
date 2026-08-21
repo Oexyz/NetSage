@@ -17,7 +17,10 @@ from netsage.cli.state_commands import (
     credentials_app,
     device_app,
     investigate_device,
+    investigation_app,
+    list_audit,
     list_devices,
+    list_investigations,
     setup_state,
 )
 from netsage.credentials import (
@@ -38,6 +41,7 @@ from netsage.drivers.fortios import (
     discover_ssh_host_key,
 )
 from netsage.evidence import EvidenceCollector, EvidenceFactory, InMemoryEvidenceStore
+from netsage.history import HISTORY_SCHEMA_VERSION, HistoryDatabase, HistoryError
 from netsage.inventory import Inventory
 from netsage.investigations import (
     FortiOSInvestigator,
@@ -46,6 +50,7 @@ from netsage.investigations import (
 )
 from netsage.models import CredentialReference, DeviceRef, Platform
 from netsage.security import SecretRedactor
+from netsage.state import StatePaths
 from netsage.tools import FortiOSToolSet
 
 app = typer.Typer(
@@ -63,6 +68,7 @@ fortigate_app = typer.Typer(
 app.add_typer(fortigate_app)
 app.add_typer(credentials_app)
 app.add_typer(device_app)
+app.add_typer(investigation_app)
 
 
 def version_callback(value: bool) -> None:
@@ -147,6 +153,17 @@ def _docker_status() -> tuple[str, str]:
     return "OPTIONAL", details
 
 
+def _history_status() -> tuple[str, str]:
+    path = StatePaths.default().history
+    if not path.exists():
+        return "MISSING", "run netsage setup"
+    try:
+        HistoryDatabase(path).quick_check()
+    except HistoryError as error:
+        return "ERROR", str(error)
+    return "OK", f"schema {HISTORY_SCHEMA_VERSION}; quick_check ok"
+
+
 @app.command()
 def doctor() -> None:
     """Check local runtime and optional development services."""
@@ -155,6 +172,7 @@ def doctor() -> None:
         ("Git", *_command_status("git")),
         ("SSH", *_command_status("ssh")),
         ("Credential Store", *_credential_store_status()),
+        ("History Database", *_history_status()),
         ("Docker (optional)", *_docker_status()),
     ]
     table = Table(title="NetSage development environment")
@@ -192,9 +210,28 @@ def devices() -> None:
 
 
 @app.command()
-def investigate(device_id: str) -> None:
+def investigate(
+    device_id: str,
+    ephemeral: bool = typer.Option(
+        False,
+        "--ephemeral",
+        help="Do not persist Investigation, Evidence, or Audit history.",
+    ),
+) -> None:
     """Run a deterministic investigation for a stored logical Device ID."""
-    investigate_device(device_id)
+    investigate_device(device_id, ephemeral=ephemeral)
+
+
+@app.command()
+def investigations(limit: int = typer.Option(50, min=1, max=1000)) -> None:
+    """List persistent local investigation history without connecting."""
+    list_investigations(limit)
+
+
+@app.command()
+def audit(limit: int = typer.Option(50, min=1, max=1000)) -> None:
+    """List recent append-only persistent audit events."""
+    list_audit(limit)
 
 
 @fortigate_app.command("live-test")

@@ -1,6 +1,7 @@
 """CLI commands for secure local state, credentials, devices, and stored investigations."""
 
 import asyncio
+from uuid import UUID
 
 import typer
 from rich.console import Console
@@ -16,9 +17,21 @@ from netsage.credentials import (
     KeyringSecretStore,
 )
 from netsage.drivers.fortios import FortiOSParseError, FortiOSTransportError
+from netsage.history import (
+    HistoryError,
+    InvestigationNotFoundError,
+    SQLiteAuditSink,
+    SQLiteEvidenceStore,
+    SQLiteInvestigationStore,
+)
 from netsage.inventory import DuplicateDeviceError, UnknownDeviceError
 from netsage.investigations import render_investigation_report
-from netsage.onboarding import DeviceOnboardingError, DeviceTestResult, FortiOSDeviceService
+from netsage.onboarding import (
+    DeviceOnboardingError,
+    DeviceTestResult,
+    FortiOSDeviceService,
+    InvestigationHistoryWriteError,
+)
 from netsage.state import (
     DuplicateSSHTrustError,
     InvalidStateReferenceError,
@@ -37,6 +50,11 @@ credentials_app = typer.Typer(
 device_app = typer.Typer(
     name="device",
     help="Manage persistent FortiOS device profiles.",
+    no_args_is_help=True,
+)
+investigation_app = typer.Typer(
+    name="investigation",
+    help="Show or remove persistent local investigation history.",
     no_args_is_help=True,
 )
 
@@ -163,6 +181,20 @@ def credential_remove(name: str) -> None:
     ) as error:
         raise _fail(str(error), error) from error
     console.print(f"Credential profile removed: {name}")
+
+
+@credentials_app.command("rotate")
+def credential_rotate(name: str) -> None:
+    """Replace a profile's OS-keyring password without changing device metadata."""
+
+    password = typer.prompt("New password", hide_input=True, confirmation_prompt=True)
+    try:
+        _credential_service(_state()).rotate_secret(name, password)
+    except (CredentialProfileNotFoundError, CredentialStoreError, StateError, ValueError) as error:
+        raise _fail(str(error), error) from error
+    finally:
+        password = ""
+    console.print(f"Credential secret updated: {name}")
 
 
 def list_devices() -> None:
@@ -326,11 +358,14 @@ def device_trust_reset(name: str) -> None:
     console.print("SSH host-key trust updated.")
 
 
-def investigate_device(name: str) -> None:
+def investigate_device(name: str, *, ephemeral: bool = False) -> None:
     """Run the existing deterministic investigation for a stored Device ID."""
 
     try:
-        report = asyncio.run(_device_service(_state()).investigate(name))
+        report = asyncio.run(_device_service(_state()).investigate(name, persist=not ephemeral))
+    except InvestigationHistoryWriteError as error:
+        console.print(render_investigation_report(error.report))
+        raise _fail(str(error), error) from error
     except (
         UnknownDeviceError,
         InvalidStateReferenceError,
@@ -344,6 +379,84 @@ def investigate_device(name: str) -> None:
     ) as error:
         raise _fail(str(error), error) from error
     console.print(render_investigation_report(report))
+    if ephemeral:
+        console.print("History persistence: disabled for this investigation.")
+    else:
+        console.print(f"Investigation saved: {report.investigation.investigation_id}")
+
+
+def list_investigations(limit: int = 50) -> None:
+    """List local history without connecting to a device."""
+
+    try:
+        state = _state()
+        summaries = SQLiteInvestigationStore(state.history).list(limit=limit)
+    except (HistoryError, ValueError, StateError) as error:
+        raise _fail(str(error), error) from error
+    console.print("NetSage investigation history")
+    for summary in summaries:
+        console.print(f"ID: {summary.investigation_id}")
+        console.print(f"  Device: {summary.device_id}")
+        console.print(f"  Kind: {summary.kind.value}")
+        console.print(f"  Status: {summary.status.value}")
+        console.print(f"  Started: {summary.started_at.isoformat()}")
+
+
+@investigation_app.command("show")
+def investigation_show(investigation_id: str) -> None:
+    """Reload and render a typed report without network access."""
+
+    try:
+        identifier = UUID(investigation_id)
+        state = _state()
+        report = SQLiteInvestigationStore(state.history).get(identifier)
+        evidence = SQLiteEvidenceStore(state.history).list_for_investigation(identifier)
+    except (ValueError, HistoryError, InvestigationNotFoundError, StateError) as error:
+        raise _fail(str(error), error) from error
+    console.print(f"Investigation ID: {identifier}")
+    console.print(f"Evidence references: {len(evidence)}")
+    console.print(render_investigation_report(report))
+
+
+@investigation_app.command("remove")
+def investigation_remove(investigation_id: str) -> None:
+    """Delete one report and its Evidence; persistent Audit remains append-only."""
+
+    if not typer.confirm(f"Remove investigation {investigation_id}?", default=False):
+        console.print("Investigation removal cancelled.")
+        raise typer.Exit(code=1)
+    try:
+        identifier = UUID(investigation_id)
+        state = _state()
+        SQLiteInvestigationStore(state.history).remove(identifier)
+    except (ValueError, HistoryError, InvestigationNotFoundError, StateError) as error:
+        raise _fail(str(error), error) from error
+    console.print("Investigation and associated Evidence removed.")
+    console.print("Audit events were retained.")
+
+
+def list_audit(limit: int = 50) -> None:
+    """Show recent append-only audit metadata without device access."""
+
+    try:
+        events = SQLiteAuditSink(_state().history).list(limit=limit)
+    except (HistoryError, ValueError, StateError) as error:
+        raise _fail(str(error), error) from error
+    table = Table(title="NetSage audit history")
+    table.add_column("Timestamp")
+    table.add_column("Tool")
+    table.add_column("Device")
+    table.add_column("Result")
+    table.add_column("Authorized")
+    for event in events:
+        table.add_row(
+            event.timestamp.isoformat(),
+            event.tool,
+            event.device or "-",
+            event.result.value,
+            "yes" if event.authorization.allowed else "no",
+        )
+    console.print(table)
 
 
 def _print_device_test(result: DeviceTestResult) -> None:

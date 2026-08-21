@@ -1,6 +1,6 @@
 """FortiOS-only device onboarding, testing, removal, and stored investigations."""
 
-from netsage.broker import ToolBroker
+from netsage.broker import InMemoryAuditSink, ToolBroker
 from netsage.credentials import (
     CredentialProfileStore,
     CredentialSecretStore,
@@ -17,6 +17,7 @@ from netsage.drivers.fortios import (
     SSHHostKeyPin,
 )
 from netsage.evidence import EvidenceCollector, EvidenceFactory, InMemoryEvidenceStore
+from netsage.history import HistoryError, SQLiteAuditSink, SQLiteInvestigationStore
 from netsage.investigations import (
     FortiOSInvestigator,
     InvestigationReport,
@@ -38,6 +39,12 @@ class DeviceOnboardingError(RuntimeError):
     def __init__(self, result: DeviceTestResult) -> None:
         super().__init__(result.detail)
         self.result = result
+
+
+class InvestigationHistoryWriteError(RuntimeError):
+    def __init__(self, report: InvestigationReport) -> None:
+        super().__init__("Investigation completed, but local history persistence failed")
+        self.report = report
 
 
 class FortiOSDeviceService:
@@ -191,13 +198,19 @@ class FortiOSDeviceService:
             pin=pin,
         )
 
-    async def investigate(self, name: str) -> InvestigationReport:
+    async def investigate(self, name: str, *, persist: bool = True) -> InvestigationReport:
         inventory = self._state.load_inventory()
         device = inventory.get_device(name)
         runtime = await self._runtime.prepare(device)
+        audit_sink = (
+            SQLiteAuditSink(self._state.history, redactor=runtime.redactor)
+            if persist
+            else InMemoryAuditSink()
+        )
         broker = ToolBroker(
             inventory=inventory,
             redactor=runtime.redactor,
+            audit_sink=audit_sink,
             user="local-cli",
             ai_provider=None,
         )
@@ -210,10 +223,20 @@ class FortiOSDeviceService:
             store=store,
             driver="FortiOSDriver",
         )
-        return await FortiOSInvestigator(
+        report = await FortiOSInvestigator(
             collector=collector,
             redactor=runtime.redactor,
         ).investigate_health(device.name)
+        if persist:
+            evidence = store.list_for_investigation(report.investigation.investigation_id)
+            try:
+                SQLiteInvestigationStore(
+                    self._state.history,
+                    redactor=runtime.redactor,
+                ).add(report, evidence)
+            except (HistoryError, ValueError) as error:
+                raise InvestigationHistoryWriteError(report) from error
+        return report
 
     async def _test_with_reviewed_pin(
         self, device: DeviceRef, pin: SSHHostKeyPin

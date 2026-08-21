@@ -1,6 +1,7 @@
 """Composition root for versioned, non-secret local application state."""
 
 from netsage.credentials import CredentialProfileStore
+from netsage.history import HistoryDatabase
 from netsage.inventory import Inventory
 from netsage.inventory.store import InventoryStore
 from netsage.state.atomic import load_yaml_document, save_yaml_document
@@ -34,16 +35,19 @@ class LocalState:
         self.inventory = InventoryStore(self.paths.inventory)
         self.credentials = CredentialProfileStore(self.paths.credential_profiles)
         self.host_trust = SSHHostTrustStore(self.paths.host_trust)
+        self.history = HistoryDatabase(self.paths.history)
 
     def initialize(self) -> None:
         self.settings.initialize()
         self.inventory.initialize()
         self.credentials.initialize()
         self.host_trust.initialize()
+        self.history.initialize()
         self.settings.load()
         self.inventory.load()
         self.credentials.load()
         self.host_trust.load()
+        self.history.quick_check()
 
     def load_inventory(self) -> Inventory:
         inventory = self.inventory.load()

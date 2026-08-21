@@ -50,6 +50,8 @@ def test_clean_initialization_creates_versioned_separate_state(tmp_path: Path) -
     assert state.inventory.load().devices == {}
     assert state.credentials.load().profiles == {}
     assert state.host_trust.load().hosts == {}
+    assert paths.history.is_file()
+    assert state.history.quick_check() == "ok"
     for path in (
         paths.settings,
         paths.inventory,

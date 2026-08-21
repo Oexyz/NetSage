@@ -7,13 +7,15 @@ path:
 - Linux: `$XDG_CONFIG_HOME/netsage/` or `~/.config/netsage/`
 - macOS: `~/Library/Application Support/NetSage/`
 
-The directory contains four logically separate YAML documents:
+The directory contains four logically separate YAML documents and one History
+database:
 
 ```text
 config.yaml          application settings
 inventory.yaml       non-secret DeviceRef inventory
 credentials.yaml     credential profile metadata only
 known-hosts.yaml     SSH host identity fingerprints
+history.sqlite3      sanitized Investigation, Evidence, and Audit history
 ```
 
 Every document has `schema_version: 1`. Unknown future versions, malformed YAML,
@@ -38,9 +40,10 @@ ACL; NetSage does not apply fragile POSIX permission assumptions on Windows.
 - credential provider, kind, and username metadata;
 - SSH host, port, public-key algorithm, and SHA-256 fingerprint.
 
-State files never contain passwords, API tokens, private key content, SNMP
+YAML state and SQLite History never contain passwords, API tokens, private key content, SNMP
 communities, AAA secrets, authorization headers, raw Credential objects, raw
-device output, Evidence, Audit events, or Investigation history.
+device output, or raw authentication material. SQLite may contain normalized
+operational Evidence, Reports, and safe Audit metadata.
 
 `netsage setup` initializes missing state documents and validates existing ones.
 Other state-aware commands initialize missing files lazily with the same policy.
