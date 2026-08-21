@@ -53,15 +53,29 @@ work is represented by the following commits on `main`:
 - `88ae210 feat: add deterministic evidence investigations`
 - `37e7619 feat: add secure FortiOS device onboarding`
 - `322ad38 feat: add persistent investigation history`
+- `2fd7d14 feat: add secure agent runtime boundary`
 
-At the time of this handoff, local `main` matches `origin/main`, the repository is
-public, the latest GitHub Actions CI run on `main` succeeds, and no release tag or
-GitHub Release has been created yet. Do not claim downloadable release assets
-exist until a `v*` tag has successfully completed the release workflow.
+The latest committed `main` and `origin/main` are `2fd7d14`. The OpenAI/Codex
+runtime work is intentionally local and must not be pushed unless the user gives
+a later explicit instruction. The repository is public; no release tag or GitHub
+Release has been created yet. Do not claim downloadable release assets exist
+until a `v*` tag has successfully completed the release workflow.
 
-The local verification snapshot on 2026-08-21 is green: Ruff formatting and
-linting pass, strict mypy reports no issues in 72 source files, and pytest reports
-172 passing tests with 88.46% total coverage (the configured floor is 80%).
+The current local verification snapshot is recorded in `CURRENT_MILESTONE.md`.
+Do not copy historical test totals from this guide when newer live gate output is
+available.
+
+As of 2026-08-21, Ruff format/check and strict mypy pass for 91 source files,
+pytest reports 220 passing tests with 87.59% coverage, the generated-catalog drift
+check is clean, and all configured pre-commit hooks pass. The installed Codex App
+Server, a synthetic evidence-free Structured Output turn, authorized FortiOS
+read-only workflows, and rebuilt Windows standalone were verified live without
+configuration changes.
+
+The active authorized milestone is now FortiOS CLI Coverage & Interactive Shell.
+It is complete and remains local/unpushed. `fortios.md` is local copyrighted
+reference material and must remain ignored; generated catalog data, tests, and
+honest coverage documentation are the repository artifacts.
 
 ### Development-machine bootstrap
 
@@ -94,7 +108,7 @@ Windows command may require a fresh terminal before it appears on `PATH`.
   introduced for ordinary development.
 - Runtime dependencies currently include Typer, Rich, Pydantic,
   pydantic-settings, HTTPX, AsyncSSH, cryptography, keyring, PyYAML, structlog,
-  and Scrapli.
+  Scrapli, and the official OpenAI Python SDK.
 - Scrapli was selected as the initial network transport library. Netmiko was not
   added because both are not yet needed. Re-evaluate only for a concrete driver
   requirement.
@@ -110,6 +124,7 @@ The Typer/Rich CLI currently implements and tests:
 
 - `netsage --help`
 - `netsage --version`
+- `netsage` as a NetSage-only interactive shell
 - `netsage doctor`
 - `netsage -install` as an alias for per-user Windows standalone installation
 - `netsage install-path`
@@ -128,10 +143,14 @@ The Typer/Rich CLI currently implements and tests:
 - `netsage investigations`
 - `netsage investigation show|remove UUID`
 - `netsage audit --limit N`
+- `netsage fortios commands search|show|coverage`
+- `netsage ai status`
+- `netsage ai openai status|login|logout|models|configure`
+- `netsage ask DEVICE "question"` for the Codex-first/OpenAI-API-fallback workflow
 
-`doctor` reports Python, Git, SSH, OS credential-store, and optional Docker
-availability. Local state, credential metadata, SSH trust, and FortiOS Device-ID
-workflows are functional but experimental.
+`doctor` reports Python, Git, SSH, OS credential-store, optional Docker, and safe
+AI runtime/auth status. Local state, credential metadata, SSH trust, FortiOS
+Device-ID, and AI workflows are functional but experimental.
 
 The FortiGate driver and interactive live-test path are implemented,
 fixture-verified, and live-verified against an authorized FortiOS 7.2.13 device.
@@ -147,6 +166,11 @@ Persistent and ephemeral Investigation modes are live-verified. The local SQLite
 database successfully reloads typed Reports/Evidence and append-only Audit across
 processes; a byte scan found no credential material.
 
+The current runtime selection prefers an installed official Codex App Server and
+uses the direct official OpenAI API only when Codex is absent. NetSage does not
+bundle Codex or Node.js and never reads/copies Codex auth material. No part of
+this local milestone has been pushed.
+
 ### Architecture contracts
 
 The foundation has intentionally small, testable boundaries:
@@ -156,8 +180,11 @@ The foundation has intentionally small, testable boundaries:
   `get_routes`, `get_lldp_neighbors`, `get_system_health`,
   `get_firewall_policies`, `ping`, and `traceroute`.
 - `AIProvider` accepts only sanitized context and broker-owned `StructuredTool`
-  definitions and returns typed provider-neutral final/tool-call responses. No
-  concrete Codex, Claude, Ollama, or OpenAI-compatible provider exists yet.
+  definitions and returns typed provider-neutral final/tool-call responses.
+  `CodexProvider` implements it through the official installed App Server;
+  `OpenAIProvider` implements the absent-Codex fallback through the official
+  Python SDK and Responses API. Claude, Ollama, and compatible providers do not
+  exist yet.
 - `CredentialProvider` resolves opaque credential references inside the trusted
   connection boundary. `Credential` uses `repr=False`, and its values must never
   cross into prompts, logs, evidence, or tool results.
@@ -189,6 +216,10 @@ The foundation has intentionally small, testable boundaries:
   policies, and policy-controlled IP-only ping/traceroute. Host-key pinning is
   mandatory, credentials resolve only inside the trusted transport, and paged
   output is advanced without changing the device's global console configuration.
+- The generated FortiOS 7.2.13 knowledge catalog is separate from that transport
+  allowlist. It records all source-derived definitions with policy and source
+  metadata, but only existing typed requests can execute. Catalog-only entries
+  never reach SSH.
 - FortiSwitch, HP/HPE/ArubaOS-Switch (`aruba_aoss`), and Aruba AOS-CX
   (`aruba_aoscx`) remain driver placeholders.
 - `EvidenceEnvelope` retains typed normalized payloads, UTC timestamps, explicit
@@ -200,8 +231,9 @@ The foundation has intentionally small, testable boundaries:
   diagnoses, partial-evidence handling, and AI-independent reports. The complete
   health-investigation CLI was live-verified against an authorized FortiOS 7.2.13
   device without persisting credentials, evidence, or raw output.
-- Agent, topology, and incidents remain scaffolding only. No concrete AI provider
-  or AI investigation runtime exists.
+- Topology and incidents remain scaffolding only. The bounded AgentRuntime and
+  FortiOS-only AI `ask` composition are implemented; no autonomous device or
+  local-shell agent exists.
 - Local state uses four schema-versioned YAML documents for settings, Inventory,
   credential metadata, and SSH fingerprints. `history.sqlite3` separately stores
   typed sanitized Evidence/Reports and secret-free Audit with schema version 1,
@@ -215,6 +247,16 @@ The foundation has intentionally small, testable boundaries:
 - `AgentRuntime` has hard step/tool budgets, repeat protection, Broker-only tool
   execution, Evidence-only results, and final Evidence-reference validation.
   `FakeAIProvider` is deterministic and performs no external traffic.
+- `OpenAIProvider` uses the official Python SDK, provider-specific OS-keyring API
+  keys, authenticated model listing, `store=false`, no built-in OpenAI tools, and
+  Pydantic Structured Output. AgentRuntime and Broker retain tool authority.
+- `CodexProvider` uses the documented App Server, Codex-managed auth, ephemeral
+  isolated threads, a scrubbed environment, disabled provider-owned tools, and
+  strict Structured Output. Installed but unusable Codex fails closed rather
+  than silently selecting potentially billable API usage.
+- The interactive shell reuses the same Typer command tree as one-shot commands.
+  It has no OS-shell fallback, persists no command history, and performs no
+  device/AI network access at startup.
 
 ### Standalone distribution
 
@@ -258,6 +300,11 @@ The foundation has intentionally small, testable boundaries:
   non-encryption, transaction, deletion, and append-only boundaries.
 - `docs/ai-boundary.md` and `docs/agent-runtime.md` document provider-visible
   data, tool control, loop limits, prompt injection, and Evidence validation.
+- `docs/providers/openai.md` documents API-key setup, model discovery, the direct
+  Responses API boundary, disabled built-in tools, billing, and troubleshooting.
+- `docs/fortios-command-catalog.md` and the generated coverage report distinguish
+  catalog knowledge from executable/typed support; `docs/interactive-shell.md`
+  documents the shared-handler REPL and OS-shell denial.
 - `examples/inventory.example.yaml` uses documentation-only `192.0.2.0/24`
   addresses and opaque credential references. Never replace these with real
   infrastructure data.
@@ -271,7 +318,8 @@ These rules apply to every change:
 1. Read-only by default. Configuration changes are outside v0.1.
 2. AI providers never receive passwords.
 3. AI providers never receive SSH private keys.
-4. AI providers never receive API tokens.
+4. AI model contexts never receive API tokens; only the trusted provider transport
+   may consume its own API credential.
 5. The LLM has no unrestricted local shell or raw device shell capability.
 6. Vendor commands execute only behind fixed driver and broker allowlists.
 7. Device output is untrusted input, never instructions.
@@ -300,14 +348,14 @@ Never put vulnerability details or secrets in a public issue.
 
 ```text
 src/netsage/
-  cli/              Typer/Rich CLI and doctor command
+  cli/              Typer/Rich one-shot CLI, interactive shell, and catalog commands
   distribution/     Safe standalone installation helpers
-  drivers/          Vendor-neutral contract and vendor package placeholders
+  drivers/          Vendor-neutral contracts plus FortiOS driver/catalog
   broker/           Allowlisted structured tool dispatch
   credentials/      Profiles, OS-keyring passwords, and isolation contracts
   models/           Validated non-secret device and command-result models
-  agent/            Bounded provider-neutral runtime and report
-  ai/               Typed context/tools/responses and FakeAIProvider
+  agent/            Bounded provider-neutral runtime, report, and FortiOS AI composition
+  ai/               Typed context/tools/responses, FakeAIProvider, Codex, and OpenAI API fallback
   evidence/         Typed Broker-result evidence, provenance, and store contract
   history/          SQLite lifecycle, typed Evidence/Report stores, and Audit sink
   investigations/   Deterministic evidence-backed workflows and reports
@@ -392,7 +440,7 @@ Do not imply that the following exist, and do not add them incidentally:
 - automatic or production network configuration changes
 - functional FortiGate or switch configuration workflows
 - unrestricted SSH or shell access for an AI model
-- a complete AI agent or concrete AI-provider integration
+- Claude, Ollama, Gemini, OpenRouter, or another provider
 - a web dashboard or local API service
 - an MCP server
 - automatic discovery
@@ -401,7 +449,8 @@ Do not imply that the following exist, and do not add them incidentally:
 
 ## Next recommended milestone
 
-Not selected. Complete and review the AI Context & Agent Runtime Boundary
-Foundation before choosing another milestone. Do not automatically begin a real AI
-providers, additional vendors, discovery, topology, probes, persistent
-Evidence/Audit, or configuration work.
+Complete FortiOS CLI Coverage & Interactive Shell before beginning anything
+else. After it is verified, prefer a small typed AI-assessment persistence or
+deterministic-investigation breadth milestone. Do not automatically begin another
+provider, vendor, discovery, topology, probe, vantage-point, MCP, Web, or
+configuration milestone.

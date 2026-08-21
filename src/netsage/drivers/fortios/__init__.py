@@ -1,5 +1,10 @@
 """Read-only FortiOS driver and trusted SSH transport."""
 
+from netsage.drivers.fortios.catalog import (
+    FortiOSCatalogCoverage,
+    FortiOSCommandDefinition,
+    FortiOSCommandRegistry,
+)
 from netsage.drivers.fortios.commands import FortiOSCommand, FortiOSRequest
 from netsage.drivers.fortios.driver import (
     FORTIOS_CAPABILITIES,
@@ -22,8 +27,11 @@ from netsage.drivers.fortios.transport import (
 __all__ = [
     "FORTIOS_CAPABILITIES",
     "FortiOSAuthenticationError",
+    "FortiOSCatalogCoverage",
     "FortiOSCommand",
+    "FortiOSCommandDefinition",
     "FortiOSCommandError",
+    "FortiOSCommandRegistry",
     "FortiOSConnectionError",
     "FortiOSDriver",
     "FortiOSHostKeyError",

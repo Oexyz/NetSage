@@ -1,7 +1,9 @@
 # Bounded Agent Runtime
 
 `AgentRuntime` is ordinary typed Python without LangChain, CrewAI, AutoGen, or
-another agent framework. Only `FakeAIProvider` is implemented.
+another agent framework. FakeAIProvider remains the deterministic test provider;
+CodexProvider and OpenAIProvider implement the same contract through the
+official Codex App Server and OpenAI Python SDK respectively.
 
 ## Loop
 
@@ -36,7 +38,9 @@ separate sections and always states that no configuration changed.
 
 ## Current status
 
-The runtime is an experimental boundary proven with scripted FakeAIProvider
-loops, failures, malicious tool requests, prompt injection, and limit tests. It
-has no production AI CLI and makes no external AI calls. Provider raw responses
-or hidden metadata are not persisted.
+The runtime is an experimental boundary proven with scripted FakeAIProvider,
+fake App Server/API client loops, failures, malicious tool requests, prompt
+injection, and limit tests. `netsage ask` prefers installed Codex and otherwise
+uses the direct API; `netsage investigate` remains deterministic. Provider raw
+responses, hidden reasoning, API keys, tokens, and request transcripts are not
+persisted.

@@ -43,6 +43,10 @@ netsage investigation remove UUID
 Normal `netsage investigate DEVICE` stores sanitized History locally by default.
 Use `--ephemeral` to keep Evidence, Audit, and the Report in memory only.
 
+The current `netsage ask` workflow persists only its Broker Audit events. Its
+in-memory Evidence, Agent report, final assessment, and all raw provider protocol
+events are not written to History in this milestone.
+
 The complete persistent and ephemeral Device-ID workflows have been live-verified
 against an authorized FortiOS 7.2.13 device. Typed Report/Evidence reload, Audit
 reload, doctor quick check, unchanged ephemeral row counts, and a direct database

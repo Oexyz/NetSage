@@ -15,6 +15,11 @@ Before INSERT, safe arguments and all free strings are checked again with the
 existing SecretRedactor. A persistence failure is surfaced; NetSage does not
 silently fall back to an in-memory sink when persistent Audit was selected.
 
+The AI-assisted `ask` workflow records Broker operations with the selected
+`ai_provider` (`codex` or `openai`). Audit does not store AIContext, prompts,
+output schemas, tokens, API keys, App Server/SDK requests or responses,
+reasoning, or final model text.
+
 Recent events are available without network access:
 
 ```powershell

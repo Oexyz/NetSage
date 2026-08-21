@@ -40,6 +40,7 @@ def test_help_lists_core_commands() -> None:
         "investigate",
         "doctor",
         "fortigate",
+        "fortios",
     ):
         assert command in result.stdout
 

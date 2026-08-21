@@ -20,6 +20,12 @@ FortiOS driver still depends only on `CredentialProvider.resolve()` and does not
 know whether the provider uses Windows Credential Manager, a Linux keyring, or a
 future secure backend.
 
+This credential-profile layer is exclusively for network-device access. The
+direct OpenAI API fallback uses a separate OS-keyring service and no
+CredentialProfile. Its API key is never stored in device metadata, YAML,
+Inventory, or SQLite. The Codex path leaves authentication entirely under the
+official App Server and does not read or copy its tokens.
+
 ## CLI
 
 ```powershell
@@ -46,6 +52,5 @@ fails, the keyring entry is removed. Removal rolls metadata back if deleting the
 keyring entry fails.
 
 If no usable OS keyring backend exists, NetSage fails closed. It never writes a
-password into YAML or uses a plaintext fallback. SSH-agent, Vault, cloud secret
-managers, API tokens, and environment-based production credentials remain out of
-scope.
+password or provider API key into YAML and has no plaintext or environment
+fallback. SSH-agent, Vault, and cloud secret managers remain out of scope.

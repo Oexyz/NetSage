@@ -36,11 +36,24 @@ bounded to the live operation.
 Diagnostics accept only parsed IP address objects and are denied by the default
 Observe policy. No user or AI string can become a FortiOS command.
 
-The FortiOS CLI reference is used to review the fixed commands and their versioned
-syntax. It is not bundled as an executable command catalog and is never exposed as
-an arbitrary CLI tool. Adding a command to a future driver requires a semantic
-capability, a read-only or explicitly controlled classification, normalized output,
-redaction, and synthetic tests.
+The complete local FortiOS 7.2.13 CLI reference is now transformed into a
+generated knowledge catalog with command class, capability, typed argument,
+context, execution/parser support, and source line/page metadata. The catalog is
+not a transport allowlist and is never exposed as an arbitrary CLI tool. Only the
+fixed commands above remain executable. Adding another executable operation still
+requires a semantic capability, explicit policy, reviewed typed rendering,
+redaction, normalized output or a documented sanitized-text boundary, and tests.
+
+Inspect the local catalog without connecting to a device:
+
+```powershell
+netsage fortios commands search route
+netsage fortios commands show fortios.execute.ping
+netsage fortios commands coverage
+```
+
+See [FortiOS command catalog](fortios-command-catalog.md) for exact generated
+coverage and the distinction between known, executable, and typed output.
 
 ### Shell output handling
 

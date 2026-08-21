@@ -20,6 +20,7 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run ruff check .
       - run: uv run mypy src
+      - run: uv run python scripts/generate_fortios_catalog.py --check
       - run: uv run pytest
       - name: Validate Linux installer
         run: |

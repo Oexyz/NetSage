@@ -13,6 +13,9 @@ from rich.table import Table
 
 from netsage import __version__
 from netsage.broker import ToolBroker
+from netsage.cli.ai_commands import ai_app, ai_doctor_checks, ask_device
+from netsage.cli.fortios_catalog_commands import fortios_app
+from netsage.cli.shell import run_interactive_shell
 from netsage.cli.state_commands import (
     credentials_app,
     device_app,
@@ -56,7 +59,7 @@ from netsage.tools import FortiOSToolSet
 app = typer.Typer(
     name="netsage",
     help="Open-source AI Network & Infrastructure Investigator",
-    no_args_is_help=True,
+    no_args_is_help=False,
     invoke_without_command=True,
 )
 console = Console()
@@ -69,6 +72,8 @@ app.add_typer(fortigate_app)
 app.add_typer(credentials_app)
 app.add_typer(device_app)
 app.add_typer(investigation_app)
+app.add_typer(ai_app)
+app.add_typer(fortios_app)
 
 
 def version_callback(value: bool) -> None:
@@ -80,6 +85,7 @@ def version_callback(value: bool) -> None:
 
 @app.callback()
 def main(
+    ctx: typer.Context,
     version: bool = typer.Option(
         False,
         "--version",
@@ -97,6 +103,9 @@ def main(
     """Safely investigate networks using structured, read-only tools."""
     if install:
         _run_install_path()
+        raise typer.Exit()
+    if ctx.invoked_subcommand is None:
+        run_interactive_shell(app)
 
 
 def _run_install_path() -> None:
@@ -174,6 +183,7 @@ def doctor() -> None:
         ("Credential Store", *_credential_store_status()),
         ("History Database", *_history_status()),
         ("Docker (optional)", *_docker_status()),
+        *ai_doctor_checks(),
     ]
     table = Table(title="NetSage development environment")
     table.add_column("Component")
@@ -232,6 +242,13 @@ def investigations(limit: int = typer.Option(50, min=1, max=1000)) -> None:
 def audit(limit: int = typer.Option(50, min=1, max=1000)) -> None:
     """List recent append-only persistent audit events."""
     list_audit(limit)
+
+
+@app.command()
+def ask(device_id: str, question: str) -> None:
+    """Ask installed Codex or the OpenAI API to reason over sanitized Evidence."""
+
+    ask_device(device_id, question)
 
 
 @fortigate_app.command("live-test")

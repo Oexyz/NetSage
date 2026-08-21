@@ -81,6 +81,14 @@ uv run netsage fortigate live-test
 FortiGate support remains experimental. One authorized live verification does not
 establish universal FortiOS compatibility.
 
+The deterministic Device-ID command remains `netsage investigate DEVICE`. The
+separate `netsage ask DEVICE "question"` command runs the same deterministic
+health baseline first and then supplies sanitized Evidence to the experimental
+Codex or direct OpenAI provider. A provider may name only an operation from the
+Broker-filtered structured catalog in its typed response; AgentRuntime executes
+any accepted request and validates the final Evidence references. See
+[Codex provider](providers/codex.md) and [OpenAI provider](providers/openai.md).
+
 The complete health-investigation flow has been live-verified against an
 authorized FortiOS 7.2.13 device. The verification persisted no credential,
 device address, hostname, interface data, evidence payload, or raw capture.

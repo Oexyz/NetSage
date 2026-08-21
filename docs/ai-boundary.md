@@ -1,8 +1,11 @@
 # Provider-neutral AI Boundary
 
-NetSage currently implements a typed security boundary and a deterministic
-FakeAIProvider. No real AI service, authentication, endpoint, API key, or network
-request exists.
+NetSage implements a typed security boundary, deterministic FakeAIProvider, an
+experimental installed-Codex adapter, and a direct OpenAI API fallback. Codex
+owns its managed authentication and NetSage never receives its tokens. The API
+fallback key is stored separately in the OS credential store and is consumed
+only by the trusted official SDK client. See
+[Codex provider](providers/codex.md) and [OpenAI provider](providers/openai.md).
 
 ## AI-visible context
 
@@ -45,3 +48,14 @@ AIToolCall -> ToolBroker -> CommandResult -> EvidenceCollector
 The provider never receives CommandResult or raw device output. Unknown, shell,
 credential, malformed, unavailable, unsupported, and denied requests produce
 bounded result categories.
+
+## Real provider transport
+
+OpenAI receives the same semantic contract as FakeAIProvider. The adapter
+serializes only AIContext, the Broker-filtered StructuredTool catalog, and typed
+prior tool results. The Responses API uses a Pydantic Structured Output envelope,
+`store=false`, and an empty built-in-tools list.
+
+Tool names in model output are data for AgentRuntime, not OpenAI function tools.
+Raw provider responses, SDK errors, hidden reasoning, request transcripts, and
+provider authentication are not persisted.

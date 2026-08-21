@@ -8,6 +8,7 @@ uv run pre-commit install
 uv run ruff format .
 uv run ruff check .
 uv run mypy src
+uv run python scripts/generate_fortios_catalog.py --check
 uv run pytest
 ```
 

@@ -4,6 +4,7 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 hidden_imports = collect_submodules("keyring.backends")
 data_files = collect_data_files("keyring")
+data_files += collect_data_files("netsage.drivers.fortios.catalog.generated")
 
 analysis = Analysis(
     ["scripts/netsage_entry.py"],

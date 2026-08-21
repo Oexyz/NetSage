@@ -17,6 +17,18 @@ fail-closed stubs. Passwords, SSH private keys, API tokens, SNMP communities, an
 AAA shared secrets must never enter prompts, AI context, state files, logs,
 evidence, audit events, or tool results.
 
+The generated FortiOS command catalog contains knowledge and policy metadata
+only. It does not add a generic transport method. Catalog-only definitions cannot
+reach `FortiOSSSHTransport`; configuration and destructive classes remain denied
+by ObservePolicy. The optional local renderer accepts only definition-owned typed
+arguments and rejects sensitive placeholders, control characters, shell syntax,
+and unexpected names.
+
+The interactive `netsage` prompt dispatches only registered commands through the
+same Typer tree as one-shot CLI calls. Unknown input is never forwarded to the
+operating system. NetSage uses no `os.system`, `shell=True`, or generic subprocess
+fallback for REPL input, and persists no shell history.
+
 ## Persistent local state
 
 NetSage stores only non-secret, schema-versioned application settings, Inventory,
@@ -44,7 +56,8 @@ Tool results are explicitly marked as untrusted device data. Redaction removes
 known secret fields and patterns, but it does not turn hostnames, descriptions,
 banners, or logs into instructions. Audit events store safe arguments and bounded
 status categories; they intentionally omit raw tool output and arbitrary exception
-messages. The current audit sink is in-memory only and is not persistent.
+messages. Stored Device investigations use append-only SQLite Audit; ephemeral
+flows retain the in-memory sink.
 
 Evidence is created only from Broker-validated `CommandResult` objects. The
 factory reuses `SecretRedactor`, retains typed normalized payloads and explicit
@@ -95,8 +108,36 @@ unbounded loops. Final non-insufficient conclusions require valid current
 Evidence references and cannot structurally contradict an existing deterministic
 CONFIRMED diagnosis.
 
-Only FakeAIProvider exists. There are no provider credentials, API endpoints,
-external AI calls, or persisted raw provider responses.
+FakeAIProvider remains deterministic and offline. When `codex` is installed,
+NetSage prefers the official Codex App Server and lets it own managed
+authentication. NetSage receives only minimal account status and never reads or
+copies its auth files, access tokens, refresh tokens, cookies, or email identity.
+Codex runs an ephemeral thread in an empty temporary directory with a scrubbed
+environment, built-in tools disabled, read-only/no-tool-network sandboxing, and
+protocol-level denial of tool and approval requests.
+
+When Codex is absent, the experimental OpenAIProvider uses the official Python
+SDK and Responses API with API-key authentication. The key is stored under a
+separate provider-specific OS-keyring service, never in the network-device
+CredentialProfile layer, YAML, SQLite, Audit, Evidence, logs, or AIContext.
+NetSage has no environment-variable or plaintext fallback.
+
+OpenAI requests set `store=false`, provide no built-in tools, and request a typed
+Pydantic Structured Output. Web/file search, MCP, shell, code interpreter,
+computer use, and provider-owned function execution are not exposed. NetSage
+AgentRuntime interprets a structured tool-name request as data and ToolBroker
+remains the only execution authority.
+
+Only sanitized AIContext, Broker-filtered tool metadata, and typed Evidence/tool
+results are serialized to OpenAI. Host/management address, username,
+CredentialReference, network password, SSH trust, raw CLI, CommandResult,
+Inventory, and History paths remain excluded. Raw App Server/SDK requests or
+responses, provider errors, hidden reasoning, tokens, API keys, and final AI
+assessments are not persisted.
+NetSage does not read or copy ChatGPT/Codex auth files, browser sessions, access
+tokens, refresh tokens, or cookies, and implements no undocumented OAuth flow.
+See the [Codex provider boundary](docs/providers/codex.md) and
+[OpenAI API fallback](docs/providers/openai.md).
 
 The FortiOS live-test path discovers the SSH server key before asking for a
 credential and pins that key in memory after explicit user confirmation. Its
@@ -111,7 +152,8 @@ lifetime and is intended only for bounded authorized testing.
 1. All network access is read-only by default.
 2. AI providers never receive passwords.
 3. AI providers never receive SSH private keys.
-4. AI providers never receive API tokens.
+4. AI model contexts never receive API tokens; only the trusted provider transport
+   may consume its own API credential.
 5. The LLM has no unrestricted shell capability.
 6. Vendor commands execute only behind driver and broker allowlists.
 7. Device output is untrusted input and must not be treated as instructions.

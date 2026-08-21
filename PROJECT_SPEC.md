@@ -244,6 +244,12 @@ For early releases:
 
 No current milestone may introduce generic remote execution.
 
+The current FortiOS command-catalog milestone may model every vendor command,
+including configuration and destructive definitions, without making those
+definitions executable. Generated catalog knowledge, local search, typed argument
+metadata, and policy classification do not weaken the fixed driver/transport
+allowlist.
+
 ## Credential architecture
 
 Credentials live exclusively in the trusted credential layer. Inventory stores
@@ -403,15 +409,34 @@ could contain secrets.
 ## AI providers and runtime
 
 AI provider adapters and the agent runtime are separate concepts. All providers
-use the same broker boundary. Planned providers include:
+use the same broker boundary. Implemented experimental OpenAI-backed paths are:
 
-- Codex through officially supported sign-in and APIs only;
+- the OpenAI API through officially supported SDKs and API authentication;
+- an explicitly requested Codex adapter through the official installed App
+  Server and Codex-managed authentication.
+
+Planned additional providers include:
+
 - Anthropic API, with Bedrock and Vertex AI later;
 - Ollama, then vLLM, LM Studio, and compatible endpoints.
 
 Browser-token extraction, custom OAuth hacks, and unofficial subscription
 credential reuse are forbidden. A deterministic `FakeAIProvider` is required
 before investigation tests depend on provider behavior.
+
+The direct provider uses the official OpenAI Python SDK and API-key
+authentication. When the official Codex executable is installed, NetSage
+instead prefers the documented App Server and lets Codex own its managed
+authentication lifecycle. NetSage never reads, copies, serializes, or returns
+Codex tokens or auth files. Provider authentication remains separate from
+network-device credentials and never enters AIContext.
+
+Neither path exposes provider-owned tools. The Codex adapter uses ephemeral
+threads, a scrubbed child environment, an empty temporary working directory,
+disabled built-in tool features, read-only/no-tool-network sandboxing, and
+protocol-level denial of tool requests. The NetSage AgentRuntime and Tool Broker
+remain the only owners of evidence-gathering execution. Browser-token extraction,
+browser cookies, and undocumented OAuth flows remain forbidden.
 
 Simple structured queries such as devices, device details, and interfaces do not
 require an LLM. AI is reserved for natural language, planning, hypotheses,
@@ -446,9 +471,10 @@ There is never a direct LLM-to-CLI path.
 ## CLI, MCP, and web boundaries
 
 NetSage is CLI-first. Commands are implemented only when their workflow exists;
-placeholders must not be described as functional. A later interactive CLI may
-cover setup, devices, credentials, discovery, investigation, topology, probes,
-and configuration.
+placeholders must not be described as functional. The current interactive shell
+reuses the same registered one-shot CLI handlers and never forwards unknown input
+to an operating-system shell. Future commands may cover discovery, topology,
+probes, and controlled configuration only in their respective milestones.
 
 An MCP server and Web UI are deferred until the core and drivers are stable. MCP
 tools will use the same Security Broker and can never return credentials. No
@@ -522,7 +548,8 @@ current milestone gives it a real responsibility and tests.
    ARP/routes, and health.
 4. **Aruba AOS-CX:** REST/SSH facts, interfaces, VLAN, MAC, LLDP, routes, health.
 5. **FortiSwitch:** basic read-only support, then FortiLink awareness.
-6. **AI provider layer:** fake provider, Codex, Anthropic, Ollama, generic adapter.
+6. **AI provider layer:** fake provider, OpenAI API, then explicitly requested
+   additional adapters.
 7. **Investigation engine:** intent, hypotheses, plans, evidence, diagnosis, report.
 8. **Discovery:** approved networks, seeds, LLDP/FortiLink, candidate review,
    credential rules.
