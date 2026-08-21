@@ -33,8 +33,8 @@ def test_no_argument_launch_help_nested_command_and_exit() -> None:
     assert result.exit_code == 0, result.output
     assert "NetSage 0.1.0" in result.output
     assert "Mode: Observe" in result.output
-    assert "Usage: netsage" in result.output
-    assert "Usage: netsage fortios" in result.output
+    assert "Open-source AI Network & Infrastructure Investigator" in result.output
+    assert "Inspect the generated FortiOS CLI knowledge catalog" in result.output
     assert "Commands catalogued" in result.output
 
 
