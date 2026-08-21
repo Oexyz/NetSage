@@ -79,6 +79,25 @@ default. `--ephemeral` selects in-memory Evidence and Audit and creates no Histo
 rows. Persistent write failures are surfaced and never silently downgraded to an
 in-memory fallback.
 
+## AI runtime boundary
+
+The experimental provider-neutral runtime receives an explicit allowlisted
+AIContext rather than Inventory, database rows, CommandResult, AuditEvent, or
+transport objects. The context excludes hosts, credential references, usernames,
+keyring metadata, SSH trust, and internal exceptions. Device observations remain
+typed `UNTRUSTED_DEVICE_DATA`.
+
+Tool catalogs originate only from the Tool Broker and are filtered by Device
+Capability and ObservePolicy. Unknown, shell, credential, and denied diagnostic
+requests cannot expand that catalog. AI tool results contain Evidence—not raw
+CommandResult output. Hard step/tool limits and duplicate-call protection prevent
+unbounded loops. Final non-insufficient conclusions require valid current
+Evidence references and cannot structurally contradict an existing deterministic
+CONFIRMED diagnosis.
+
+Only FakeAIProvider exists. There are no provider credentials, API endpoints,
+external AI calls, or persisted raw provider responses.
+
 The FortiOS live-test path discovers the SSH server key before asking for a
 credential and pins that key in memory after explicit user confirmation. Its
 password provider is process-memory-only: credentials cannot be supplied through

@@ -1,9 +1,16 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from ipaddress import IPv4Address, IPv6Address
 
 import pytest
 
-from netsage.ai import AIProvider, AIResponse, StructuredTool
+from netsage.ai import (
+    AIContext,
+    AIFinalResponse,
+    AIProvider,
+    AIProviderResponse,
+    AIToolResult,
+    StructuredTool,
+)
 from netsage.credentials import (
     Credential,
     CredentialKind,
@@ -80,14 +87,18 @@ class ExampleDriver(NetworkDriver):
 
 
 class ExampleAIProvider(AIProvider):
-    async def investigate(
+    async def generate(
         self,
-        prompt: str,
+        context: AIContext,
         *,
         tools: Sequence[StructuredTool],
-        context: Mapping[str, object],
-    ) -> AIResponse:
-        return AIResponse(text=prompt, tool_calls=({"tool": tools[0].name, "context": context},))
+        tool_results: Sequence[AIToolResult],
+    ) -> AIProviderResponse:
+        del tools, tool_results
+        return AIFinalResponse(
+            summary=context.user_request,
+            diagnosis_strength="insufficient",
+        )
 
 
 @pytest.mark.asyncio
@@ -106,10 +117,23 @@ async def test_driver_contract() -> None:
 
 @pytest.mark.asyncio
 async def test_ai_provider_contract() -> None:
-    tool = StructuredTool(name="get_facts", description="facts", input_schema={})
-    response = await ExampleAIProvider().investigate("investigate", tools=[tool], context={})
-    assert response.text == "investigate"
-    assert response.tool_calls[0]["tool"] == "get_facts"
+    context = AIContext.model_validate(
+        {
+            "investigation_id": "00000000-0000-0000-0000-000000000001",
+            "user_request": "investigate",
+            "device": {
+                "device_id": "example",
+                "platform": "fortios",
+                "capabilities": [],
+            },
+            "evidence": [],
+            "deterministic_findings": [],
+            "missing_evidence": [],
+        }
+    )
+    response = await ExampleAIProvider().generate(context, tools=[], tool_results=[])
+    assert isinstance(response, AIFinalResponse)
+    assert response.summary == "investigate"
 
 
 def test_credential_repr_does_not_expose_secret() -> None:

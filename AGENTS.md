@@ -52,6 +52,7 @@ work is represented by the following commits on `main`:
 - `5a57ce3 fix: support FortiOS performance memory totals`
 - `88ae210 feat: add deterministic evidence investigations`
 - `37e7619 feat: add secure FortiOS device onboarding`
+- `322ad38 feat: add persistent investigation history`
 
 At the time of this handoff, local `main` matches `origin/main`, the repository is
 public, the latest GitHub Actions CI run on `main` succeeds, and no release tag or
@@ -59,8 +60,8 @@ GitHub Release has been created yet. Do not claim downloadable release assets
 exist until a `v*` tag has successfully completed the release workflow.
 
 The local verification snapshot on 2026-08-21 is green: Ruff formatting and
-linting pass, strict mypy reports no issues in 66 source files, and pytest reports
-160 passing tests with 88.14% total coverage (the configured floor is 80%).
+linting pass, strict mypy reports no issues in 72 source files, and pytest reports
+172 passing tests with 88.46% total coverage (the configured floor is 80%).
 
 ### Development-machine bootstrap
 
@@ -155,8 +156,8 @@ The foundation has intentionally small, testable boundaries:
   `get_routes`, `get_lldp_neighbors`, `get_system_health`,
   `get_firewall_policies`, `ping`, and `traceroute`.
 - `AIProvider` accepts only sanitized context and broker-owned `StructuredTool`
-  definitions and returns a provider-neutral `AIResponse`. No concrete Codex,
-  Claude, Ollama, or OpenAI-compatible provider exists yet.
+  definitions and returns typed provider-neutral final/tool-call responses. No
+  concrete Codex, Claude, Ollama, or OpenAI-compatible provider exists yet.
 - `CredentialProvider` resolves opaque credential references inside the trusted
   connection boundary. `Credential` uses `repr=False`, and its values must never
   cross into prompts, logs, evidence, or tool results.
@@ -208,6 +209,12 @@ The foundation has intentionally small, testable boundaries:
 - FortiOS onboarding verifies an unauthenticated discovered host key before
   keyring resolution/authentication, rejects changes, and persists a Device only
   after read-only facts succeed.
+- `AIContextBuilder` exposes only logical device metadata, typed untrusted
+  Evidence, deterministic findings, and missing Evidence. It fails closed when a
+  configured SecretRedactor recognizes credential material.
+- `AgentRuntime` has hard step/tool budgets, repeat protection, Broker-only tool
+  execution, Evidence-only results, and final Evidence-reference validation.
+  `FakeAIProvider` is deterministic and performs no external traffic.
 
 ### Standalone distribution
 
@@ -249,6 +256,8 @@ The foundation has intentionally small, testable boundaries:
   `docs/device-onboarding.md` document persistent state and onboarding.
 - `docs/history.md` and `docs/audit.md` document operational-data persistence,
   non-encryption, transaction, deletion, and append-only boundaries.
+- `docs/ai-boundary.md` and `docs/agent-runtime.md` document provider-visible
+  data, tool control, loop limits, prompt injection, and Evidence validation.
 - `examples/inventory.example.yaml` uses documentation-only `192.0.2.0/24`
   addresses and opaque credential references. Never replace these with real
   infrastructure data.
@@ -294,11 +303,11 @@ src/netsage/
   cli/              Typer/Rich CLI and doctor command
   distribution/     Safe standalone installation helpers
   drivers/          Vendor-neutral contract and vendor package placeholders
-  ai/               Provider-neutral AI contract and future providers
   broker/           Allowlisted structured tool dispatch
   credentials/      Profiles, OS-keyring passwords, and isolation contracts
   models/           Validated non-secret device and command-result models
-  agent/            Future investigation orchestration
+  agent/            Bounded provider-neutral runtime and report
+  ai/               Typed context/tools/responses and FakeAIProvider
   evidence/         Typed Broker-result evidence, provenance, and store contract
   history/          SQLite lifecycle, typed Evidence/Report stores, and Audit sink
   investigations/   Deterministic evidence-backed workflows and reports
@@ -392,7 +401,7 @@ Do not imply that the following exist, and do not add them incidentally:
 
 ## Next recommended milestone
 
-Not selected. Complete and review the Persistent Investigation History & Audit
-Foundation before choosing another milestone. Do not automatically begin AI
+Not selected. Complete and review the AI Context & Agent Runtime Boundary
+Foundation before choosing another milestone. Do not automatically begin a real AI
 providers, additional vendors, discovery, topology, probes, persistent
 Evidence/Audit, or configuration work.

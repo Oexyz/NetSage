@@ -1,75 +1,59 @@
-# Current Milestone: Persistent Investigation History & Audit Foundation
+# Current Milestone: AI Context & Agent Runtime Boundary Foundation
 
-Status: complete. SQLite Report/Evidence history, append-only Broker Audit,
-ephemeral mode, doctor checks, and keyring secret rotation are unit-, integration-,
-reload-, byte-scan-, and live-verified against an authorized FortiOS 7.2.13
-device without credential or raw-output persistence.
+Status: complete. The provider-neutral context, typed tool boundary, bounded
+runtime, FakeAIProvider, Evidence validation, and security controls are fully
+verified without any external AI traffic.
 
-## Goals
+## Goals completed
 
-- add a user-level SQLite history database at the existing NetSage state path;
-- use schema version 1, foreign keys, robust transactions, and restrictive files;
-- fail closed for corrupt, incomplete, or unsupported database schemas;
-- preserve typed EvidenceEnvelope and InvestigationReport roundtrips;
-- implement SQLiteEvidenceStore using the existing EvidenceStore contract;
-- implement SQLiteInvestigationStore with list, show, remove, and Evidence cascade;
-- implement append-only SQLiteAuditSink using the existing AuditSink contract;
-- persist Broker audit events independently while an Investigation runs;
-- commit completed Investigation Report and Evidence in one transaction;
-- make stored Device-ID investigations persistent by default;
-- provide an explicit `--ephemeral` mode using in-memory stores only;
-- add local History and Audit CLI views without network access;
-- extend doctor with passive schema/accessibility/quick-check status;
-- add secure keyring secret rotation without changing device configuration;
-- defensively reject recognized secret material before every persistent write.
+- immutable allowlisted AIContext and minimal AIDeviceContext;
+- typed AIEvidence retaining explicit UNTRUSTED_DEVICE_DATA;
+- fail-closed AIContextBuilder with defensive SecretRedactor checks;
+- typed StructuredTool, AIToolCall, AIToolResult, and AIFinalResponse;
+- Broker-derived tool catalogs filtered by Inventory, Capability, and ObservePolicy;
+- Evidence-only AI tool results after Broker and EvidenceCollector;
+- bounded AgentRuntime with conservative step/tool-call limits;
+- duplicate-call and duplicate-call-ID handling;
+- safe provider/tool error categories without internal exception strings;
+- deterministic programmable FakeAIProvider only;
+- final Evidence-reference validation and deterministic-CONFIRMED protection;
+- provider-neutral report separating deterministic findings and AI assessment.
 
 ## Non-goals
 
-- no new hardware or driver beyond experimental FortiOS;
-- no AI, Codex, Claude, Ollama, OpenAI, MCP, Web UI, or FastAPI;
-- no Discovery, Topology, LLDP discovery, probes, or vantage points;
-- no device configuration change or password rotation on FortiOS;
-- no Vault, cloud secret manager, TACACS+, or RADIUS integration;
-- no SQLAlchemy, Alembic, ORM, PostgreSQL, MySQL, Redis, or MongoDB;
-- no application-level SQLite encryption claim;
-- no automatic cloud sync, telemetry, upload, audit purge, or retention engine;
-- no raw CLI output, Credential, keyring secret, or SSH trust duplication in History.
+- no Codex, OpenAI, Claude, Ollama, Gemini, OpenRouter, or real provider;
+- no provider credentials, API keys, endpoints, login, network traffic, or raw responses;
+- no new hardware or FortiOS commands;
+- no Discovery, Topology, LLDP, probes, vantage points, MCP, Web UI, or FastAPI;
+- no configuration planning, remediation, arbitrary shell, or arbitrary CLI;
+- no agent CLI presented as a real AI product;
+- no Retention, Backup, or database-encryption work.
 
 ## Security invariants
 
-- History contains sensitive operational data but never credential material;
-- History is protected by OS user-level permissions, not database encryption;
-- POSIX state directory is 0700 and history file is 0600;
-- Audit retains safe arguments and bounded categories, never CommandResult output;
-- configuration_changed and credential_exposed remain false;
-- known secrets are checked with the existing SecretRedactor before INSERT;
-- deleting an Investigation cascades its Evidence but never its Audit events;
-- failed final persistence reports the failure and never claims the record was saved.
+- AI receives no credential reference, username, password, host, management IP,
+  SSH trust, keyring metadata, database path, Audit internals, raw CLI, raw
+  CommandResult, or internal exception;
+- device-controlled strings remain marked untrusted and cannot alter tools/policy;
+- NetSage alone defines the exposed tool set;
+- every requested operation still passes ToolBroker and ObservePolicy;
+- diagnostics are never enabled by the provider;
+- CONFIRMED/STRONG/PROBABLE require Evidence and unknown Evidence IDs fail;
+- deterministic CONFIRMED conclusions cannot be structurally weakened;
+- loops stop on final response, provider failure, repeat, step limit, or tool limit.
 
-## Acceptance criteria
+## Verification
 
-- schema, constraints, indexes, quick check, and typed reload are tested;
-- unsupported version, invalid SQLite, missing tables, broken JSON, and foreign-key
-  errors fail visibly without deleting or replacing the database;
-- duplicate Investigation and Evidence IDs become domain errors;
-- Report plus Evidence rollback atomically on an injected mid-transaction failure;
-- persistent Audit survives failed/final Investigation writes independently;
-- normal `netsage investigate DEVICE` persists Report, Evidence, and Audit;
-- `netsage investigate DEVICE --ephemeral` creates no history rows;
-- list/show/remove and recent Audit CLI work after a new process/store instance;
-- keyring secret rotation preserves profile metadata and stores no password history;
-- canary secrets are absent from YAML, SQLite bytes, logs, reports, Evidence, Audit,
-  and repository files;
-- existing FortiOS live-test, interactive investigation, Device test/list, and
-  onboarding workflows remain working;
-- Ruff, strict mypy, pytest, pre-commit, CLI smokes, and coverage floor pass.
-
-## Completed previous milestones
-
-Secure Local State & Device Onboarding, Evidence & Deterministic Investigation,
-and the FortiGate read-only driver are complete and live-verified. FortiGate
-support remains experimental.
+- full routes -> health -> final FakeAI loop;
+- shell, credential, and unknown tool denial;
+- malformed arguments and policy-denied diagnostic handling;
+- repeated calls, duplicate IDs, step and tool budgets;
+- provider failures and invalid final responses;
+- invalid/absent Evidence references and deterministic contradictions;
+- prompt injection remains inert untrusted data;
+- canary secrets and credential metadata remain outside AI-visible objects;
+- all existing FortiOS, State, History, Audit, and CLI workflows remain green.
 
 ## Next milestone
 
-Not selected. Stop after completing and verifying this milestone.
+Not selected. Do not begin a real AI provider automatically.

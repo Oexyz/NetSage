@@ -1,31 +1,26 @@
-"""Provider-neutral AI boundary."""
+"""Strongly typed provider-neutral AI boundary."""
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Sequence
+
+from netsage.ai.models import (
+    AIContext,
+    AIProviderResponse,
+    AIToolResult,
+    StructuredTool,
+)
 
 
-@dataclass(frozen=True, slots=True)
-class StructuredTool:
-    """A broker-owned tool schema exposed to an AI provider."""
-
-    name: str
-    description: str
-    input_schema: Mapping[str, object]
-
-
-@dataclass(frozen=True, slots=True)
-class AIResponse:
-    """Provider-independent response without credential material."""
-
-    text: str
-    tool_calls: Sequence[Mapping[str, object]] = ()
+class AIProviderError(RuntimeError):
+    """Bounded provider failure without raw provider response or credentials."""
 
 
 class AIProvider(ABC):
-    """Generate investigations using only sanitized context and structured tools."""
-
     @abstractmethod
-    async def investigate(
-        self, prompt: str, *, tools: Sequence[StructuredTool], context: Mapping[str, object]
-    ) -> AIResponse: ...
+    async def generate(
+        self,
+        context: AIContext,
+        *,
+        tools: Sequence[StructuredTool],
+        tool_results: Sequence[AIToolResult],
+    ) -> AIProviderResponse: ...

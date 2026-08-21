@@ -34,6 +34,7 @@ shell, password, private-key, or API-token access.
 | Experimental | Evidence and deterministic investigations | Typed provenance, in-memory evidence, partial-failure handling, and FortiGate analysis without AI |
 | Experimental | Secure local onboarding | Versioned non-secret state, OS-keyring passwords, persistent SSH fingerprint trust, and FortiOS Device-ID workflows |
 | Experimental | Persistent history | Local typed Investigation/Evidence history and append-only secret-free Broker Audit in SQLite |
+| Experimental | Provider-neutral AI boundary | Sanitized typed context, Broker-owned tools, bounded AgentRuntime, Evidence validation, and FakeAIProvider only |
 | In development | Network platforms | FortiSwitch, HP/HPE/ArubaOS-Switch, and Aruba AOS-CX |
 | In development | Security pipeline | Persistent audit and evidence storage |
 | Planned | AI providers | Codex, Anthropic Claude, Ollama, and OpenAI-compatible APIs |
@@ -57,6 +58,10 @@ evidence, or tool results.
 
 See the [master architecture](PROJECT_SPEC.md), [current milestone](CURRENT_MILESTONE.md),
 and complete [security model](SECURITY.md).
+
+The implemented AI boundary is documented in [AI boundary](docs/ai-boundary.md)
+and [agent runtime](docs/agent-runtime.md). It performs no external AI calls and
+does not provide Codex, Claude, Ollama, or another real provider.
 
 ## Quick start for contributors
 
@@ -248,7 +253,7 @@ AI-agent implementation at this stage.
 - FortiOS Device-ID add/list/show/test/remove/investigate workflows
 - Credential and Device state remains separate from operational History
 
-### Persistent investigation history and audit — current milestone, complete
+### Persistent investigation history and audit — complete
 
 - Standard-library SQLite schema v1 with foreign keys and typed reload
 - Transactional Report plus Evidence persistence
@@ -256,6 +261,15 @@ AI-agent implementation at this stage.
 - History list/show/remove and recent Audit CLI
 - Default persistent and explicit ephemeral Investigation modes
 - Defensive SecretRedactor checks before every persistent write
+
+### AI context and agent runtime boundary — current milestone, complete
+
+- Explicit sanitized AIContext and minimal logical-device view
+- Typed Broker-owned tools, calls, results, and provider responses
+- Evidence-only tool results with untrusted-data marking
+- Hard step/tool budgets and duplicate-call protection
+- Evidence-backed final-response and deterministic-contradiction validation
+- Deterministic FakeAIProvider; no external AI service or production AI CLI
 
 ### Vendor and provider expansion — planned
 

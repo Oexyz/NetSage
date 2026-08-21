@@ -75,6 +75,18 @@ class ToolBroker:
             raise ValueError(f"Tool already registered: {definition.name}")
         self._tools[definition.name] = (definition, handler)
 
+    def tools_for_device(self, device_name: str) -> tuple[ToolDefinition, ...]:
+        """Return only registered operations currently allowed for one device."""
+
+        device = self._inventory.get_device(device_name)
+        definitions = (
+            definition
+            for definition, _handler in self._tools.values()
+            if definition.capability in device.capabilities
+            and self._policy.authorize(definition.name, definition.operation_class).allowed
+        )
+        return tuple(sorted(definitions, key=lambda item: item.name))
+
     async def invoke(self, name: str, arguments: Mapping[str, object]) -> CommandResult:
         started = perf_counter()
         device_name = arguments.get("device")
