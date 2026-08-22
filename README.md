@@ -8,7 +8,7 @@
 <p align="center">
   <img alt="CI configured" src="https://img.shields.io/badge/CI-configured-2088FF?logo=githubactions&logoColor=white">
   <img alt="Python 3.13" src="https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white">
-  <img alt="Status: early development" src="https://img.shields.io/badge/status-early%20development-f59e0b">
+  <img alt="Status: alpha" src="https://img.shields.io/badge/status-alpha-f59e0b">
   <a href="LICENSE"><img alt="Apache 2.0 license" src="https://img.shields.io/badge/license-Apache--2.0-2ea44f"></a>
 </p>
 
@@ -19,32 +19,38 @@ operation such as `get_interfaces("hp-core-01")`; it must never receive raw SSH,
 shell, password, private-key, or API-token access.
 
 > [!IMPORTANT]
-> NetSage is in early development. The repository currently provides a tested
-> project and security architecture foundation—not production device support.
-> Version 0.1 is exclusively read-only; configuration changes are out of scope.
+> NetSage is currently alpha software. Core security, storage, CLI, Evidence,
+> and agent-runtime components are Supported. FortiOS device functionality is
+> Beta while compatibility coverage grows. Native Codex OAuth remains
+> Experimental because it depends on upstream compatibility behavior. Version
+> 0.1 is exclusively read-only and is not production-ready software.
 
 ## Capability status
 
 | Status | Area | Current boundary |
 |---|---|---|
-| Supported | Developer foundation | Installable Python package, CLI, quality gates, and environment diagnostics |
-| Supported | Core architecture | Typed network models, capabilities, validated inventory, Observe policy, redaction, in-memory audit events, and fake driver |
-| Supported | Core contracts | Network drivers, AI providers, credential isolation, and structured broker tools |
-| Experimental | FortiGate | Fixture- and live-verified read-only SSH facts, interfaces, VLANs, ARP, routes, health, firewall policies, ping, and traceroute |
-| Experimental | FortiOS command knowledge | Generated 7.2.13 catalog with 19,030 source-derived classified and policy-aware definitions |
-| Experimental | FortiOS safe catalog execution | 515 of 1,049 READ_ONLY definitions promoted to bounded, audited `SANITIZED_TEXT`; 362 require review and 172 are non-executable |
-| Experimental | Interactive shell | No-argument `netsage` REPL dispatching the same Typer handlers with no OS-shell fallback |
-| Experimental | Evidence and deterministic investigations | Typed provenance, in-memory evidence, partial-failure handling, and FortiGate analysis without AI |
-| Experimental | Secure local onboarding | Versioned non-secret state, OS-keyring passwords, persistent SSH fingerprint trust, and FortiOS Device-ID workflows |
-| Experimental | Persistent history | Local typed Investigation/Evidence history and append-only secret-free Broker Audit in SQLite |
-| Experimental | Provider-neutral AI boundary | Sanitized typed context, Broker-owned tools, bounded AgentRuntime, Evidence validation, and FakeAIProvider |
-| Experimental | OpenAI Codex OAuth | ChatGPT-subscription-backed Codex access without requiring Codex CLI; OS-keyring tokens and no provider-owned tools |
-| Experimental | Codex App Server | Optional installed official Codex runtime with Codex-managed authentication and isolated ephemeral reasoning |
-| Experimental | OpenAI API | Separate official SDK/API-key route with OS-keyring isolation, model discovery, Responses API, and usage-based billing |
-| In development | Network platforms | FortiSwitch, HP/HPE/ArubaOS-Switch, and Aruba AOS-CX |
-| In development | Security pipeline | Persistent audit and evidence storage |
-| Planned | Additional AI providers | Anthropic Claude, Ollama, and compatible endpoints |
-| Planned | Additional vendors | Cisco, Arista, Juniper, and others |
+| Supported | Developer foundation | Python/uv packaging, CI, Ruff, strict mypy, pytest, pre-commit, doctor, and standalone-build foundation |
+| Supported | Core security platform | Typed models, capabilities, Inventory contracts, ObservePolicy, SecretRedactor, ToolBroker, and structured tools |
+| Supported | Local state, credentials, and SSH trust | Versioned atomic state, isolated OS-keyring secrets, credential profiles, and changed-key rejection |
+| Supported | Evidence, History, and Audit | Typed provenance, persistent reports/Evidence, transactions, ephemeral mode, and secret-free append-only Audit |
+| Supported | AI boundary and AgentRuntime | Allowlisted AIContext, Broker-owned tools, Evidence validation, hard limits, and deterministic/provider separation |
+| Supported | Interactive shell | Shared-handler NetSage REPL with quoting/help/cancellation tests and no OS-shell fallback |
+| Beta | FortiGate / FortiOS | Live-verified read-only driver and onboarding; firmware/model compatibility breadth remains limited |
+| Beta | Deterministic FortiOS investigations | Health, default-route, interface-state, and partial-Evidence workflows |
+| Beta | FortiOS command knowledge | 19,030 classified FortiOS 7.2.13 definitions; knowledge coverage is not universal FortiOS support |
+| Beta | Safe FortiOS catalog execution | 515 bounded READ_ONLY definitions; 362 require review and 172 are non-executable |
+| Beta | OpenAI API | Official API-key-backed provider with strict output and isolated keyring storage |
+| Beta | Codex App Server | Optional official installed-Codex adapter with managed auth and provider-owned tools denied |
+| Experimental | Native Codex OAuth | Live-verified ChatGPT-subscription compatibility path whose upstream contract may change |
+| Planned | Additional AI providers | Claude, Ollama, and generic compatible endpoints |
+| Planned | Additional vendors | FortiSwitch, Aruba, Cisco, Arista, Juniper, MikroTik, and others |
+| Planned | Discovery and topology | Discovery, graph correlation, Vantage Points, and Probes |
+| Planned | Apply and product surfaces | Plan/Apply, remediation, MCP, and Web UI |
+
+See [feature maturity levels](docs/status-levels.md) for the definitions and
+current decision record. Supported means maintained and tested within the alpha
+lifecycle; pre-1.0 compatibility may still evolve, and the label is not a claim
+that defects or security bugs are impossible.
 
 ## Real-world validation
 
@@ -267,7 +273,7 @@ operational data. It is protected by user-level operating-system permissions, no
 application-level SQLite encryption. Use `--ephemeral` when no History should be
 written.
 
-The experimental FortiGate live test prompts for every connection value and
+The Beta FortiGate live test prompts for every connection value and
 keeps its password in process memory only:
 
 ```powershell
@@ -387,109 +393,91 @@ remote shell for AI, network configuration workflow, web dashboard, or NetSage
 MCP server. The real AI paths are the experimental native Codex OAuth provider,
 optional Codex App Server adapter, and separate OpenAI API provider.
 
-## Roadmap
+## Current capabilities
 
-### Core architecture — complete
+### Developer and core platform — supported
 
 - Modern Python 3.13 package managed with `uv`
-- CLI and environment doctor
-- Typed vendor-neutral models and explicit driver capabilities
-- Validated non-secret inventory and opaque credential references
-- Observe authorization policy, structured Tool Broker, redaction, and audit events
-- Deterministic fake driver for hardware-free tests
-- Ruff, mypy, pytest, pre-commit, and GitHub Actions
-- Self-contained Windows/Linux release builds and verified user-level installers
+- CI, Ruff, strict mypy, pytest, pre-commit, doctor, and standalone builds
+- Typed vendor-neutral models, capabilities, Inventory, and driver contracts
+- ObservePolicy, SecretRedactor, structured Tool Broker, and fake driver
 
-### FortiGate read-only driver — complete, experimental
+### Interactive shell — supported
 
-- Host-key-pinned AsyncSSH connection lifecycle
-- Prompt-aware collection of paged FortiOS output without changing console settings
-- Typed facts, interfaces, VLANs, ARP, routes, health, and firewall policies
-- Policy-controlled, IP-only ping and traceroute
-- Credential resolution exclusively inside the trusted connection layer
-- Capability-aware Broker tools and sanitized synthetic fixtures
+- Shared Typer handlers for REPL and one-shot commands
+- Tested quoting, nested help, exit/quit, EOF, Ctrl+C, and command equivalence
+- Explicit rejection of unknown operating-system commands and no shell fallback
 
-### FortiOS CLI coverage and interactive shell — complete
+### State, credentials, SSH trust, History, and Audit — supported
 
-- Deterministic source extractor and compressed, lazily loaded runtime manifest
-- 19,030 source-derived definitions with class, capability, arguments, and traceability
-- Local search/info/coverage commands with no device connection
-- Existing transport allowlist retained; no generic CLI execution
-- Interactive no-argument shell over the same Typer command handlers
-- Safe quoting, help, exit/quit, EOF/Ctrl+C, and explicit OS-command rejection
+- Platform-appropriate versioned YAML with atomic writes and corruption handling
+- Separate OS-keyring secrets and transactional CredentialProfile metadata
+- Unauthenticated host-key discovery, explicit trust, and changed-key rejection
+- Typed transactional SQLite Report/Evidence History and ephemeral mode
+- Append-only normal Audit path with no credentials or raw output
 
-### FortiOS read-only catalog execution — complete
+### Evidence and agent runtime foundations — supported
 
-- Deterministic disposition for all 1,049 READ_ONLY definitions
-- 515 promoted one-shot commands; 362 require review; 172 non-executable
-- ID-only typed rendering with no arbitrary CLI string surface
-- Existing host-key, credential, SSH, paging, timeout, and output-limit reuse
-- Mandatory Observe authorization, double redaction, bounded untrusted text, and Audit
-- One-shot and REPL `fortios run`, dry-run, and secret-free JSON output
-- No AI promotion, Evidence creation, text History, diagnostic auto-promotion, or changes
-
-### Evidence and deterministic investigation — complete
-
-- Typed evidence envelopes with UTC timestamps and non-secret provenance
-- Explicit untrusted-data marking and a secret-rejecting in-memory store
-- Deterministic FortiGate health, active-default-route, and interface-state checks
-- Partial evidence and `INSUFFICIENT` reports when collection fails
-- Human-readable reports with no AI dependency
-
-### Secure local state and device onboarding — complete
-
-- Platform-appropriate, schema-versioned non-secret YAML state
-- Atomic writes, corruption handling, and restrictive user-level permissions
-- OS-keyring password profiles with transactional metadata rollback
-- Persistent SSH fingerprint trust with changed-key rejection
-- FortiOS Device-ID add/list/show/test/remove/investigate workflows
-- Credential and Device state remains separate from operational History
-
-### Persistent investigation history and audit — complete
-
-- Standard-library SQLite schema v1 with foreign keys and typed reload
-- Transactional Report plus Evidence persistence
-- Independent append-only Broker Audit events
-- History list/show/remove and recent Audit CLI
-- Default persistent and explicit ephemeral Investigation modes
-- Defensive SecretRedactor checks before every persistent write
-
-### AI context and agent runtime boundary — complete
-
+- Typed EvidenceEnvelope, UTC provenance, DataTrust, and secret rejection
 - Explicit sanitized AIContext and minimal logical-device view
-- Typed Broker-owned tools, calls, results, and provider responses
-- Evidence-only tool results with untrusted-data marking
-- Hard step/tool budgets and duplicate-call protection
-- Evidence-backed final-response and deterministic-contradiction validation
-- Deterministic FakeAIProvider for hardware- and API-free tests
+- Broker-owned tools and Evidence-only tool results
+- Hard step/tool limits, duplicate detection, safe provider failures, and
+  Evidence-backed conclusion validation
 
-### Codex App Server and OpenAI API integration — complete, experimental
+### FortiGate read-only driver and onboarding — beta
 
-- Installed official Codex App Server is preferred and uses Codex-managed auth
-- Direct official Python SDK/Responses API path with a separate API-key domain
-- Hidden API-key setup and a provider-specific OS-keyring namespace
-- Ephemeral isolated Codex threads with built-in tools disabled and denied
-- Authenticated API model discovery and explicit model/effort configuration
-- Strict Structured Outputs through the provider-neutral AI contract
-- Direct API uses `store=false`; neither path exposes provider-owned tools
-- Real `netsage ask`; deterministic `netsage investigate` remains unchanged
-- Fake App Server/API clients in CI plus a local synthetic Codex smoke test
+- Host-key-pinned AsyncSSH transport and credential isolation
+- Typed facts, interfaces, VLANs, ARP, routes, health, and firewall policies
+- Policy-controlled IP-only ping and traceroute
+- Live-verified Device-ID onboarding and read-only operations
+- Compatibility evidence is concentrated on FortiOS 7.2.13 and a small hardware matrix
 
-### Native Codex OAuth provider — current milestone, experimental
+### Deterministic FortiOS investigations — beta
 
-- ChatGPT/Codex device authorization without Codex CLI or API key
-- Access, refresh, and ID tokens in one atomically activated OS-keyring bundle only
-- Serialized refresh and bounded auth/inference failures with no token output
-- Direct Codex Responses backend with strict output, no tools, and `store=false`
-- Visible native OAuth, optional App Server, and usage-based API separation
-- Explicit read-only existing-Codex import; source credentials are never modified
-- Same AgentRuntime, ToolBroker, AIContext, Evidence, and Observe boundaries
+- Health, active-default-route, interface-state, and partial-Evidence workflows
+- Explicit `INSUFFICIENT` results when required observations are unavailable
+- AI-independent reports and authorized live verification
 
-### Vendor and provider expansion — planned
+### FortiOS command knowledge — beta
 
-- FortiSwitch, ArubaOS-Switch, and AOS-CX read-only operations
-- Claude, Ollama, and compatible endpoint integrations
-- Further vendors only after the security boundary is proven
+- Deterministic compressed manifest with 19,030 classified definitions
+- 100% of definitions discovered from the FortiOS 7.2.13 source are catalogued
+- Local search/info/coverage with no device connection or arbitrary CLI
+- Source coverage is not universal FortiOS support or executable coverage
+
+### FortiOS read-only catalog execution — beta
+
+- 515 bounded READ_ONLY commands; 362 require review; 172 are non-executable
+- ID-only typed rendering, Observe authorization, redaction, limits, and Audit
+- No automatic Evidence/AI exposure, diagnostic promotion, or configuration changes
+- Model, firmware, permissions, and `SANITIZED_TEXT` output remain compatibility limits
+
+### OpenAI API — beta
+
+- Official SDK, API-key authentication, model discovery, and strict Structured Outputs
+- Separate OS-keyring domain, `store=false`, and no provider-owned tools
+- Direct account/model/environment compatibility breadth remains limited
+
+### Codex App Server — beta
+
+- Optional official installed-Codex adapter with Codex-managed authentication
+- Ephemeral isolated reasoning, strict output, and provider-owned tools denied
+- Live synthetic verification exists, but installation/account coverage is limited
+
+### Native Codex OAuth — experimental
+
+- Live-verified device authorization, keyring storage, refresh, strict inference,
+  and complete read-only FortiOS `ask`
+- No Codex CLI or API-key requirement and no OAuth/API-key crossover
+- Upstream OAuth/backend compatibility is not a guaranteed stable third-party contract
+
+## Roadmap
+
+- Additional AI providers: Claude, Ollama, and generic compatible endpoints
+- Additional vendors: FortiSwitch, Aruba, Cisco, Arista, Juniper, MikroTik, and others
+- Discovery, topology, Vantage Points, and Probes
+- MCP and Web UI after the core remains stable
+- Plan/Apply and controlled remediation only after explicit future milestones
 
 ## Responsible use
 

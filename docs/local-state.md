@@ -1,5 +1,7 @@
 # Secure Local State
 
+Maturity: Supported
+
 NetSage stores application configuration at a platform-appropriate user-level
 path:
 

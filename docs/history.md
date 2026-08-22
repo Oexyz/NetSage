@@ -1,5 +1,7 @@
 # Persistent Investigation History
 
+Maturity: Supported
+
 NetSage stores sanitized local Investigation history in `history.sqlite3` beside
 the existing user-level YAML state. The database uses Python's standard-library
 `sqlite3`, schema version 1 (`PRAGMA user_version`), foreign keys, FULL

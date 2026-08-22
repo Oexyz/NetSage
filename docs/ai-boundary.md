@@ -1,6 +1,8 @@
 # Provider-neutral AI Boundary
 
-NetSage implements a typed security boundary, deterministic FakeAIProvider, an
+Maturity: Supported
+
+NetSage implements a Supported typed security boundary, deterministic FakeAIProvider, an
 experimental native ChatGPT/Codex OAuth compatibility provider, an optional
 installed-Codex adapter, and a direct OpenAI API provider. Native OAuth tokens
 and the API key use different OS-keyring services; neither enters AIContext. See

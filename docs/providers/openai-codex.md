@@ -1,6 +1,7 @@
 # Experimental OpenAI Codex OAuth Provider
 
 Provider ID: `openai-codex`
+Maturity: Experimental
 
 This provider offers experimental ChatGPT/Codex OAuth compatibility without
 requiring Codex CLI, Node.js, a `.codex` directory, or an OpenAI API key. It uses

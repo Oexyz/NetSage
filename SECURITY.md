@@ -1,7 +1,9 @@
 # NetSage Security Model
 
-NetSage is an early-stage defensive diagnostic tool. Version 0.1 is read-only and
-does not support configuration changes.
+NetSage is an alpha defensive diagnostic tool. Version 0.1 is read-only and does
+not support configuration changes. Supported security components are maintained,
+tested NetSage contracts; this maturity label is not a claim that security bugs
+are impossible or that the overall product is production-ready.
 
 ## Trust boundaries
 
@@ -105,7 +107,7 @@ in-memory fallback.
 
 ## AI runtime boundary
 
-The experimental provider-neutral runtime receives an explicit allowlisted
+The Supported provider-neutral runtime receives an explicit allowlisted
 AIContext rather than Inventory, database rows, CommandResult, AuditEvent, or
 transport objects. The context excludes hosts, credential references, usernames,
 keyring metadata, SSH trust, and internal exceptions. Device observations remain
@@ -143,7 +145,7 @@ ephemeral thread in an empty temporary directory with a scrubbed environment,
 built-in tools disabled, read-only/no-tool-network sandboxing, and protocol-level
 denial of tool and approval requests.
 
-The separate experimental `openai-api` provider uses the official Python SDK and
+The Beta `openai-api` provider uses the official Python SDK and
 Responses API with API-key authentication. The key is stored under a
 separate provider-specific OS-keyring service, never in the network-device
 CredentialProfile layer, YAML, SQLite, Audit, Evidence, logs, or AIContext.

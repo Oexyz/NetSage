@@ -1,10 +1,14 @@
 # Network Drivers
 
+Driver contract maturity: Supported
+
 NetSage drivers translate fixed semantic operations into vendor-specific,
 read-only access and normalize the results. AI providers and Broker callers never
 receive an SSH session, raw command string, or credential-provider API.
 
 ## FortiOS
+
+Implementation maturity: Beta
 
 The FortiOS implementation uses AsyncSSH with a closed command enum. Before any
 credential is transmitted, the live CLI retrieves the SSH host key without
@@ -84,8 +88,8 @@ configuration and could affect other administrators.
 Parsers accept prompt and command-echo variants, current-VDOM wrappers, omitted
 default settings, nested configuration blocks, and common FortiOS appliance model
 names. System-health parsing supports both the `Memory states: ... used` format
-and the FortiOS 7.2-style total/used/free memory format. The current milestone is
-still a deliberately bounded FortiOS 7.x-style surface; unsupported output fails
+and the FortiOS 7.2-style total/used/free memory format. The implemented driver is
+Beta and deliberately bounded to a FortiOS 7.x-style surface; unsupported output fails
 with a safe parser error instead of fabricated empty data.
 
 The complete passive snapshot has been verified against an authorized FortiOS

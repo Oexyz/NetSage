@@ -1,5 +1,7 @@
 # FortiOS Read-Only Catalog Execution
 
+Maturity: Beta
+
 NetSage provides an expert execution layer for a conservative subset of the
 generated FortiOS catalog. It is not raw CLI and is separate from Investigation,
 Evidence, and AI tool promotion.

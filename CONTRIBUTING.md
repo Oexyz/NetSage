@@ -14,6 +14,11 @@ uv run pytest
 
 Never commit credentials or real device output containing sensitive data. New device operations must be structured, read-only, tested, and routed through the Tool Broker.
 
+Use the maturity definitions in [docs/status-levels.md](docs/status-levels.md)
+when documenting features. Do not label functionality Experimental merely
+because it is new, and do not use Supported as a production-readiness or
+bug-free claim.
+
 ## Standalone binaries
 
 Build the native executable on the target operating system:

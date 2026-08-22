@@ -1,5 +1,7 @@
 # FortiOS Device Onboarding
 
+Maturity: Beta
+
 The current onboarding workflow supports FortiOS only. A logical Device ID is
 the stable handle used by later commands; users no longer need to re-enter the
 host, port, username, or password during normal operation.
@@ -67,8 +69,9 @@ in-memory Audit, Evidence Collector, deterministic investigator, and report
 renderer. Evidence, Audit, reports, and Investigation history remain in-memory
 and are not added to local YAML state.
 
-FortiOS support remains experimental. Live verification against one authorized
-device does not establish universal FortiOS compatibility.
+FortiOS onboarding is Beta. It is usable, tested, and live-verified, but evidence
+from a small device/firmware matrix does not establish universal FortiOS
+compatibility.
 
 The complete `setup -> credentials add -> device add -> device test -> investigate`
 workflow has been live-verified against an authorized FortiOS 7.2.13 device. No

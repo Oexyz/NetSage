@@ -1,5 +1,7 @@
 # Persistent Audit Trail
 
+Maturity: Supported
+
 `SQLiteAuditSink` implements the existing `AuditSink` contract and records each
 Broker decision by INSERT only. The normal application exposes no update, edit,
 delete, or purge operation for Audit events.

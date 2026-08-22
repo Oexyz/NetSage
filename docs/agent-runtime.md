@@ -1,5 +1,7 @@
 # Bounded Agent Runtime
 
+Maturity: Supported
+
 `AgentRuntime` is ordinary typed Python without LangChain, CrewAI, AutoGen, or
 another agent framework. FakeAIProvider remains the deterministic test provider;
 native Codex OAuth, the optional Codex App Server, and the direct OpenAI API all
@@ -39,9 +41,11 @@ separate sections and always states that no configuration changed.
 
 ## Current status
 
-The runtime is an experimental boundary proven with scripted FakeAIProvider,
-fake native OAuth/App Server/API client loops, failures, malicious tool requests,
-prompt injection, and limit tests. `netsage ask` follows the visible provider
-selection policy; `netsage investigate` remains deterministic. Provider raw
-responses, hidden reasoning, API keys, tokens, and request transcripts are not
-persisted.
+The provider-neutral AgentRuntime is a Supported NetSage contract. It is proven
+with scripted FakeAIProvider and fake native OAuth/App Server/API client loops,
+failures, malicious tool requests, prompt injection, and limit tests. Concrete
+provider maturity is classified separately: OpenAI API and Codex App Server are
+Beta, while native Codex OAuth is Experimental. `netsage ask` follows the visible
+provider selection policy; `netsage investigate` remains deterministic. Provider
+raw responses, hidden reasoning, API keys, tokens, and request transcripts are
+not persisted.

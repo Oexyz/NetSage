@@ -1,5 +1,7 @@
 # FortiOS Command Catalog
 
+Maturity: Beta
+
 NetSage maintains a generated FortiOS 7.2.13 CLI knowledge catalog derived from
 the complete local `fortios.md` conversion. The catalog is metadata, not a raw
 device execution surface.

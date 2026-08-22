@@ -1,5 +1,7 @@
 # Deterministic Investigations
 
+Maturity: Beta for the implemented FortiOS workflows
+
 The current investigation foundation runs fixed Python workflows without an AI
 provider, prompt engine, rule-engine dependency, or direct driver access.
 
@@ -78,16 +80,19 @@ The existing passive compatibility check remains available as:
 uv run netsage fortigate live-test
 ```
 
-FortiGate support remains experimental. One authorized live verification does not
-establish universal FortiOS compatibility.
+Deterministic FortiOS investigations are Beta. They are tested and live-verified,
+but the implemented investigation breadth and device/firmware matrix remain
+limited.
 
 The deterministic Device-ID command remains `netsage investigate DEVICE`. The
 separate `netsage ask DEVICE "question"` command runs the same deterministic
-health baseline first and then supplies sanitized Evidence to the experimental
-Codex or direct OpenAI provider. A provider may name only an operation from the
-Broker-filtered structured catalog in its typed response; AgentRuntime executes
-any accepted request and validates the final Evidence references. See
-[Codex provider](providers/codex.md) and [OpenAI provider](providers/openai.md).
+health baseline first and then supplies sanitized Evidence to the selected AI
+provider. The official OpenAI API and optional Codex App Server adapters are
+Beta; native Codex OAuth is Experimental. A provider may name only an operation
+from the Broker-filtered structured catalog in its typed response; AgentRuntime
+executes any accepted request and validates the final Evidence references. See
+[native Codex OAuth](providers/openai-codex.md),
+[Codex App Server](providers/codex.md), and [OpenAI API](providers/openai.md).
 
 The complete health-investigation flow has been live-verified against an
 authorized FortiOS 7.2.13 device. The verification persisted no credential,

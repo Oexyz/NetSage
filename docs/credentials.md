@@ -1,5 +1,7 @@
 # Credential Profiles and OS Keyring
 
+Maturity: Supported
+
 NetSage separates persistent metadata from sensitive runtime material:
 
 ```text

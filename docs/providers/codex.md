@@ -1,6 +1,7 @@
 # Optional Codex App Server Provider
 
 Provider ID: `codex-app-server`
+Maturity: Beta
 
 NetSage can reuse an installed official Codex CLI as an optional OpenAI-backed
 reasoning runtime. It is no longer required for ChatGPT subscription access: the

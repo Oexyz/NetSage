@@ -1,5 +1,7 @@
 # Evidence Model
 
+Maturity: Supported
+
 NetSage evidence is an immutable, point-in-time snapshot created only after a
 structured tool result has passed the Tool Broker. The evidence layer does not
 resolve credentials, open network connections, select vendor commands, or store

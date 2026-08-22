@@ -1,6 +1,7 @@
 # OpenAI API Provider
 
 Provider ID: `openai-api`
+Maturity: Beta
 
 NetSage's direct API provider integrates the official OpenAI Python SDK and
 Responses API. It has no dependency on Codex, Node.js, an external AI CLI, a
@@ -69,7 +70,7 @@ defaults are:
 
 ```yaml
 ai:
-  provider: openai
+  provider: openai-api
   openai:
     model: gpt-5.6-terra
     reasoning_effort: medium
@@ -123,6 +124,7 @@ the deterministic FortiOS baseline and runs the bounded AgentRuntime. The existi
 - `OPENAI_OUTPUT_INVALID`: no validated structured response was returned.
 - `OPENAI_CREDENTIAL_STORE_ERROR`: the OS credential backend is unavailable.
 
-Direct API usage and billing are separate from a ChatGPT subscription. The provider
-remains experimental; one test environment does not establish production
-readiness or universal model availability.
+Direct API usage and billing are separate from a ChatGPT subscription. The
+provider is Beta: it uses the official API contract and has substantial automated
+coverage, while real account/model/environment compatibility breadth remains
+limited. Beta is not a production-readiness guarantee.

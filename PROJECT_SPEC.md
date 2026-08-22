@@ -60,8 +60,11 @@ The intended truthful product pitch is:
 
 ## Product status and platform priorities
 
-NetSage is in early development. The repository is a tested architecture
-foundation, not a production-ready network investigation product.
+NetSage is alpha software. Its maintained internal foundations can be Supported
+while device/provider compatibility remains Beta or Experimental. Alpha and
+Supported do not mean production-ready, stable, or version 1.0. The maturity
+definitions and current decision record are documented in
+`docs/status-levels.md`.
 
 Initial platform priorities are:
 
@@ -416,14 +419,16 @@ could contain secrets.
 ## AI providers and runtime
 
 AI provider adapters and the agent runtime are separate concepts. All providers
-use the same broker boundary. Implemented experimental OpenAI-backed paths are:
+use the same broker boundary. Implemented OpenAI-backed paths have separate
+maturity classifications:
 
-- the OpenAI API through officially supported SDKs and API authentication;
+- the Beta OpenAI API provider through officially supported SDKs and API
+  authentication;
 - an experimental native ChatGPT/Codex OAuth compatibility provider which uses
   the currently compatible device-authorization and Codex backend protocol
   without requiring Codex CLI;
-- an explicitly requested Codex adapter through the official installed App
-  Server and Codex-managed authentication.
+- a Beta optional Codex adapter through the official installed App Server and
+  Codex-managed authentication.
 
 Planned additional providers include:
 

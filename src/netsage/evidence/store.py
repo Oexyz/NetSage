@@ -1,4 +1,4 @@
-"""Small in-memory evidence storage boundary for the current milestone."""
+"""In-memory Evidence storage for ephemeral workflows and deterministic tests."""
 
 from typing import Protocol
 from uuid import UUID

@@ -1,5 +1,7 @@
 # Interactive Shell
 
+Maturity: Supported
+
 Running NetSage without a subcommand starts an interactive NetSage command loop:
 
 ```text

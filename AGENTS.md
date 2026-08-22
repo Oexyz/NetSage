@@ -19,6 +19,11 @@ conflict with a historical note below.
 11. Never describe planned behavior as supported.
 12. Run Ruff formatting and linting, strict mypy, and pytest before declaring work
     complete.
+13. Use Supported, Beta, Experimental, In Development, and Planned according to
+    `docs/status-levels.md`; do not default new functionality to Experimental
+    merely because it is recent.
+14. Supported means maintained and tested within the alpha lifecycle, not
+    bug-free, production-ready, or permanently API-stable before 1.0.
 
 ## Orientation and repository identity
 
@@ -34,8 +39,25 @@ conflict with a historical note below.
 - Python package and CLI command: `netsage`
 - Current package version: `0.1.0.dev0`
 - License: Apache License 2.0.
-- Status: early development. The current repository is a tested foundation, not
-  a production-ready network investigation product.
+- Status: Alpha. Supported internal foundations coexist with Beta device/provider
+  functionality and an explicitly Experimental native OAuth compatibility path.
+  NetSage is not production-ready or version 1.0.
+
+## Feature maturity terminology
+
+- **Supported:** implemented, maintained, broadly tested internal contract with
+  no known fundamental design gap.
+- **Beta:** usable and tested with partial live/end-to-end validation, but limited
+  compatibility breadth and expected edge cases.
+- **Experimental:** unstable external/compatibility contract or limited real-world
+  validation; never a synonym for new.
+- **In Development:** material implementation exists but is not yet usable enough
+  for Beta.
+- **Planned:** roadmap, architecture, or placeholders only.
+
+The authoritative definitions and current decision record are in
+`docs/status-levels.md`. Classify concrete provider and hardware compatibility
+separately from the Supported core boundary they use.
 
 ## Work completed so far
 
@@ -59,9 +81,10 @@ work is represented by the following commits on `main`:
 - `88044d9 test: make interactive help assertions portable`
 - `ed9adfa feat: add safe FortiOS catalog execution`
 - `5754b98 docs: add intermittent WAN failure case study`
+- `ee128e9 feat: add native Codex OAuth provider`
 
-The published baseline before the active native-OAuth milestone is `5754b98`,
-with GitHub Actions run `32526437839` successful. The repository is
+The published baseline before the native-OAuth and status-reclassification
+commits is `5754b98`, with GitHub Actions run `32526437839` successful. The repository is
 public; no release tag or GitHub Release has been created yet. Do not claim
 downloadable release assets exist until a `v*` tag has successfully completed
 the release workflow.
@@ -78,10 +101,10 @@ authorized FortiOS AI investigation, and the rebuilt/installed Windows standalon
 were verified live without configuration changes or token leaks.
 
 FortiOS Read-Only Catalog Execution Foundation is published on `main` and
-CI-green at `ed9adfa`. The active milestone is Native Codex OAuth Provider.
-Its implementation, tests, standalone, and authorized live verification are
-complete locally; consult `CURRENT_MILESTONE.md`, Git, and current gate output
-for publication state.
+CI-green at `ed9adfa`. Native Codex OAuth is complete in the separate feature
+commit `ee128e9`. The active milestone is Status Reclassification &
+Alpha Readiness; it is documentation-only. Consult `CURRENT_MILESTONE.md`, Git,
+and current gate output for publication state.
 `fortios.md` is local copyrighted reference material and must remain ignored;
 generated metadata, tests, and honest coverage documentation are the repository
 artifacts.
@@ -138,7 +161,7 @@ The Typer/Rich CLI currently implements and tests:
 - `netsage -install` as an alias for per-user Windows standalone installation
 - `netsage install-path`
 - `netsage uninstall-path`
-- `netsage fortigate live-test` as an experimental, interactive, read-only
+- `netsage fortigate live-test` as a Beta, interactive, read-only
   process-memory-only connection test
 - `netsage fortigate investigate` as an evidence-backed deterministic health
   investigation using the same secure connection flow
@@ -161,8 +184,10 @@ The Typer/Rich CLI currently implements and tests:
 - `netsage ask DEVICE "question"` for the visible selected-provider workflow
 
 `doctor` reports Python, Git, SSH, OS credential-store, optional Docker, and safe
-AI runtime/auth status. Local state, credential metadata, SSH trust, FortiOS
-Device-ID, and AI workflows are functional but experimental.
+AI runtime/auth status. Local state, credential metadata, SSH trust, History,
+Audit, Evidence, AI boundary/runtime, and the interactive shell are Supported.
+FortiOS and official OpenAI/Codex adapters are Beta; native Codex OAuth is
+Experimental.
 
 The FortiGate driver and interactive live-test path are implemented,
 fixture-verified, and live-verified against an authorized FortiOS 7.2.13 device.
@@ -187,6 +212,12 @@ explicit confirmation and never modifies its source.
 ### Architecture contracts
 
 The foundation has intentionally small, testable boundaries:
+
+The internal core, security, state, Evidence, History/Audit, AI boundary,
+AgentRuntime, and interactive-shell contracts are Supported. The FortiOS driver,
+onboarding/investigations/catalog surfaces, OpenAI API, and optional Codex App
+Server are Beta. Native Codex OAuth remains Experimental because of upstream
+compatibility, not because its local implementation lacks testing.
 
 - `NetworkDriver` is an async, vendor-neutral, read-only abstract contract with
   `get_facts`, `get_interfaces`, `get_vlans`, `get_mac_table`, `get_arp_table`,
@@ -317,6 +348,8 @@ The foundation has intentionally small, testable boundaries:
   limitations explicit.
 - `SECURITY.md` records trust boundaries, the ten mandatory security principles,
   and the security-reporting contact.
+- `docs/status-levels.md` defines Supported, Beta, Experimental, In Development,
+  and Planned and records the current evidence-backed classifications.
 - `CONTRIBUTING.md` contains the contributor gates and standalone build commands.
 - `docs/evidence.md` and `docs/investigations.md` document the implemented typed
   evidence and deterministic analysis boundaries.
@@ -479,8 +512,7 @@ Do not imply that the following exist, and do not add them incidentally:
 
 ## Next recommended milestone
 
-Complete Native Codex OAuth Provider before beginning anything else. After it is
-verified, return to a small reviewed set of semantic FortiOS operations or
-broaden deterministic investigations. Do not automatically begin another
-provider, vendor, discovery, topology, probe, vantage-point, MCP, Web, or
-configuration milestone.
+Complete Status Reclassification & Alpha Readiness before beginning anything
+else. After it is published, select one explicitly requested roadmap scope. Do
+not automatically begin another provider, vendor, discovery, topology, probe,
+vantage-point, MCP, Web, or configuration milestone.
