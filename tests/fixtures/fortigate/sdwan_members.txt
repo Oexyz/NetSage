@@ -1,0 +1,2 @@
+Member(1): interface: wan-a, gateway: 192.0.2.1, priority: 1, weight: 10
+Member(2): interface: wan-b, gateway: 198.51.100.1, priority: 2, weight: 5

@@ -1,0 +1,6 @@
+BGP router identifier 192.0.2.10, local AS number 65000
+BGP table version is 8
+Neighbor        V         AS MsgRcvd MsgSent TblVer InQ OutQ Up/Down State/PfxRcd
+198.51.100.10   4      65001      25      30      8   0    0 01:02:03 12
+203.0.113.10    4      65002       0       0      0   0    0 never Active
+Total number of neighbors 2

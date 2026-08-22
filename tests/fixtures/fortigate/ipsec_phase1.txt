@@ -1,0 +1,22 @@
+vd: root/0
+name: synthetic-vpn-a
+version: 2
+interface: wan-a 3
+addr: 192.0.2.10:500 -> 198.51.100.20:500
+created: 3600s ago
+IKE SA: created 1/1 established 1/1 time 20/20/20 ms
+IPsec SA: created 1/1 established 1/1 time 30/30/30 ms
+direction: initiator
+status: established 3600-3600s ago = 20ms
+key: <REDACTED>
+lifetime/rekey: 86400/82800
+
+vd: root/0
+name: synthetic-vpn-b
+version: 1
+interface: wan-b 4
+addr: 192.0.2.11:500 -> 203.0.113.20:500
+created: 120s ago
+IKE SA: created 0/1 established 0/0 time 0/0/0 ms
+IPsec SA: created 0/0 established 0/0 time 0/0/0 ms
+status: down

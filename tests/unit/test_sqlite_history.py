@@ -11,6 +11,7 @@ from netsage.evidence import (
     DuplicateEvidenceError,
     EvidenceEnvelope,
     EvidenceProvenance,
+    HAStatusEvidencePayload,
     InterfacesEvidencePayload,
 )
 from netsage.history import (
@@ -36,7 +37,7 @@ from netsage.investigations import (
     InvestigationReport,
     InvestigationStatus,
 )
-from netsage.models import Capability, DataTrust, Interface, Platform
+from netsage.models import Capability, DataTrust, HAStatus, Interface, Platform
 from netsage.policies import AuthorizationDecision
 from netsage.security import SecretRedactor
 
@@ -148,6 +149,44 @@ def test_typed_evidence_and_report_roundtrip_across_store_instances(tmp_path: Pa
     assert listed == (evidence,)
     assert summaries[0].investigation_id == INVESTIGATION_ID
     assert summaries[0].status is InvestigationStatus.INSUFFICIENT
+
+
+def test_semantic_observability_evidence_roundtrips_without_schema_change(
+    tmp_path: Path,
+) -> None:
+    evidence = EvidenceEnvelope(
+        evidence_id=EVIDENCE_ID,
+        investigation_id=INVESTIGATION_ID,
+        device_id="fortigate-example",
+        operation="get_ha_status",
+        capability=Capability.HA,
+        observed_at=NOW,
+        trust=DataTrust.UNTRUSTED_DEVICE_DATA,
+        payload=HAStatusEvidencePayload(
+            status=HAStatus(device_id="fortigate-example", enabled=False)
+        ),
+        provenance=EvidenceProvenance(
+            tool="get_ha_status",
+            device_id="fortigate-example",
+            capability=Capability.HA,
+            platform=Platform.FORTIOS,
+            driver="FakeDriver",
+        ),
+    )
+    report = make_report().model_copy(
+        update={
+            "investigation": make_report().investigation.model_copy(
+                update={"kind": InvestigationKind.HA_HEALTH}
+            ),
+        }
+    )
+    db = database(tmp_path)
+    SQLiteInvestigationStore(db).add(report, (evidence,))
+
+    reloaded = SQLiteEvidenceStore(HistoryDatabase(db.path)).get(EVIDENCE_ID)
+    assert reloaded == evidence
+    assert isinstance(reloaded.payload, HAStatusEvidencePayload)
+    assert reloaded.payload.status.enabled is False
 
 
 def test_duplicate_ids_unknown_history_delete_and_evidence_cascade(tmp_path: Path) -> None:

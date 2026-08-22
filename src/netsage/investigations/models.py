@@ -40,6 +40,18 @@ class InvestigationKind(StrEnum):
     FORTIGATE_HEALTH = "fortigate_health"
     DEFAULT_ROUTE = "default_route"
     INTERFACE_STATE = "interface_state"
+    HA_HEALTH = "ha_health"
+    SDWAN_HEALTH = "sdwan_health"
+    IPSEC_HEALTH = "ipsec_health"
+    DYNAMIC_ROUTING_HEALTH = "dynamic_routing_health"
+
+
+class FortiOSInvestigationFocus(StrEnum):
+    HEALTH = "health"
+    HA = "ha"
+    SDWAN = "sdwan"
+    IPSEC = "ipsec"
+    ROUTING = "routing"
 
 
 class Investigation(BaseModel):

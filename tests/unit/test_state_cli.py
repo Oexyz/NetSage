@@ -16,6 +16,7 @@ from netsage.credentials import (
 from netsage.drivers.fortios import SSHHostKeyPin
 from netsage.history import SQLiteAuditSink, SQLiteInvestigationStore
 from netsage.investigations import (
+    FortiOSInvestigationFocus,
     Investigation,
     InvestigationKind,
     InvestigationReport,
@@ -59,6 +60,7 @@ class FakeDeviceService:
         self.removed = False
         self.trust_replaced = False
         self.added = False
+        self.last_focus = FortiOSInvestigationFocus.HEALTH
         self.pin = SSHHostKeyPin(
             algorithm=trust.algorithm,
             fingerprint=trust.fingerprint,
@@ -92,7 +94,14 @@ class FakeDeviceService:
     def replace_trust(self, _device: DeviceRef, _pin: SSHHostKeyPin) -> None:
         self.trust_replaced = True
 
-    async def investigate(self, _name: str, *, persist: bool = True) -> InvestigationReport:
+    async def investigate(
+        self,
+        _name: str,
+        *,
+        persist: bool = True,
+        focus: FortiOSInvestigationFocus = FortiOSInvestigationFocus.HEALTH,
+    ) -> InvestigationReport:
+        self.last_focus = focus
         now = datetime(2026, 8, 20, 20, 30, tzinfo=UTC)
         report = InvestigationReport(
             investigation=Investigation(
@@ -222,6 +231,10 @@ def test_device_cli_add_list_show_test_investigate_remove_and_trust_reset(
     shown = runner.invoke(app, ["device", "show", "fortigate-example"])
     tested = runner.invoke(app, ["device", "test", "fortigate-example"])
     investigated = runner.invoke(app, ["investigate", "fortigate-example"])
+    focused = runner.invoke(
+        app,
+        ["investigate", "fortigate-example", "--ephemeral", "--focus", "ha"],
+    )
     reset = runner.invoke(
         app,
         ["device", "trust-reset", "fortigate-example"],
@@ -250,6 +263,8 @@ def test_device_cli_add_list_show_test_investigate_remove_and_trust_reset(
     assert "READY" in tested.stdout
     assert "No configuration changes were made" in investigated.stdout
     assert "Investigation saved" in investigated.stdout
+    assert focused.exit_code == 0
+    assert service.last_focus is FortiOSInvestigationFocus.HA
     assert service.trust_replaced is True
     assert service.removed is True
     assert CANARY not in "".join(

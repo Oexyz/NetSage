@@ -67,6 +67,12 @@ class InterfaceState(StrEnum):
     UNKNOWN = "unknown"
 
 
+class InterfaceDuplex(StrEnum):
+    FULL = "full"
+    HALF = "half"
+    UNKNOWN = "unknown"
+
+
 class HealthStatus(StrEnum):
     HEALTHY = "healthy"
     DEGRADED = "degraded"
@@ -152,9 +158,21 @@ class DeviceFacts(BaseModel):
 class InterfaceErrors(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    crc: int = Field(default=0, ge=0)
-    rx: int = Field(default=0, ge=0)
-    tx: int = Field(default=0, ge=0)
+    crc: int | None = Field(default=None, ge=0)
+    rx: int | None = Field(default=None, ge=0)
+    tx: int | None = Field(default=None, ge=0)
+
+
+class InterfaceStatistics(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    rx_packets: int | None = Field(default=None, ge=0)
+    tx_packets: int | None = Field(default=None, ge=0)
+    rx_bytes: int | None = Field(default=None, ge=0)
+    tx_bytes: int | None = Field(default=None, ge=0)
+    rx_drops: int | None = Field(default=None, ge=0)
+    tx_drops: int | None = Field(default=None, ge=0)
+    collisions: int | None = Field(default=None, ge=0)
 
 
 class Interface(BaseModel):
@@ -168,10 +186,14 @@ class Interface(BaseModel):
     operational_state: InterfaceState
     description: str | None = None
     speed_mbps: int | None = Field(default=None, gt=0)
+    duplex: InterfaceDuplex = InterfaceDuplex.UNKNOWN
     mtu: int | None = Field(default=None, ge=576)
+    role: str | None = None
+    parent_interface: str | None = None
     addresses: tuple[IPvAnyInterface, ...] = ()
     vlans: tuple[int, ...] = ()
     errors: InterfaceErrors = Field(default_factory=InterfaceErrors)
+    statistics: InterfaceStatistics = Field(default_factory=InterfaceStatistics)
 
     @field_validator("vlans")
     @classmethod
@@ -232,6 +254,7 @@ class Route(BaseModel):
     distance: int | None = Field(default=None, ge=0)
     metric: int | None = Field(default=None, ge=0)
     vrf: int = Field(default=0, ge=0)
+    active: bool = True
     selected: bool = False
 
 
@@ -255,6 +278,9 @@ class SystemHealth(BaseModel):
     cpu_percent: float | None = Field(default=None, ge=0, le=100)
     memory_percent: float | None = Field(default=None, ge=0, le=100)
     uptime_seconds: int | None = Field(default=None, ge=0)
+    session_count: int | None = Field(default=None, ge=0)
+    session_limit: int | None = Field(default=None, ge=0)
+    conserve_mode: bool | None = None
     observations: tuple[str, ...] = ()
 
 
@@ -274,6 +300,7 @@ class FirewallPolicy(BaseModel):
     action: FirewallAction = FirewallAction.UNKNOWN
     enabled: bool = True
     nat_enabled: bool = False
+    log_traffic: str | None = None
     schedule: str | None = None
     comments: str | None = None
 

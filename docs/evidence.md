@@ -36,12 +36,25 @@ closed set covers normalized:
 - routes;
 - system health;
 - IPv4 firewall policies;
+- HA status and members;
+- SD-WAN status, members, and health checks;
+- IPsec status and tunnels with Phase 1/Phase 2 state;
+- BGP status and neighbors;
+- OSPF status and neighbors;
+- derived route summaries;
 - policy-authorized ping and traceroute results.
 
 Each wrapper contains the existing vendor-neutral Pydantic model or a tuple of
 those models. The envelope validates that payload, capability, operation,
 provenance, and device identity agree. Unknown result shapes and unsupported
 operations fail closed.
+
+The new comprehensive semantic status payloads are explicitly bounded and carry
+`truncated=true` when the parser has more valid records than the model can hold.
+Focused member/neighbor/tunnel operations reject a truncated source instead of
+silently returning a partial tuple. Empty or unrecognized feature output becomes
+`EvidenceCollectionFailure`; only an explicit FortiOS disabled/not-running state
+becomes a successful payload with `enabled=false`.
 
 ## Provenance and trust
 
@@ -67,4 +80,6 @@ that failed.
 The in-memory store remains available for unit tests and `--ephemeral` mode.
 Normal stored Device investigations persist the same typed envelopes through
 `SQLiteEvidenceStore`; loading revalidates the discriminated payload union. Raw
-capture storage remains intentionally unimplemented.
+capture storage remains intentionally unimplemented. The semantic expansion uses
+the existing History schema: older Evidence variants remain loadable, and the
+new discriminators round-trip without a database migration.

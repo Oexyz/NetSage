@@ -6,7 +6,12 @@ from netsage.drivers.fortios.catalog import (
     FortiOSCommandDefinition,
     FortiOSCommandRegistry,
 )
-from netsage.drivers.fortios.commands import FortiOSCommand, FortiOSRequest
+from netsage.drivers.fortios.commands import (
+    FortiOSCommand,
+    FortiOSRequest,
+    FortiOSSemanticCommand,
+    FortiOSSemanticRequest,
+)
 from netsage.drivers.fortios.driver import (
     FORTIOS_CAPABILITIES,
     FortiOSDriver,
@@ -44,6 +49,8 @@ __all__ = [
     "FortiOSParseError",
     "FortiOSRequest",
     "FortiOSSSHTransport",
+    "FortiOSSemanticCommand",
+    "FortiOSSemanticRequest",
     "FortiOSSnapshot",
     "FortiOSTransport",
     "FortiOSTransportError",

@@ -7,14 +7,26 @@ from ipaddress import IPv4Address, IPv6Address
 from netsage.models import (
     VLAN,
     ArpEntry,
+    BGPNeighbor,
+    BGPStatus,
     Capability,
     DeviceFacts,
     FirewallPolicy,
+    HAMember,
+    HAStatus,
     Interface,
+    IPsecStatus,
+    IPsecTunnel,
     LldpNeighbor,
     MacEntry,
+    OSPFNeighbor,
+    OSPFStatus,
     PingResult,
     Route,
+    RouteSummary,
+    SDWANHealthCheck,
+    SDWANMember,
+    SDWANStatus,
     SystemHealth,
     TracerouteResult,
 )
@@ -22,6 +34,10 @@ from netsage.models import (
 
 class UnsupportedCapabilityError(RuntimeError):
     """Raised instead of simulating data for an unsupported operation."""
+
+
+class IncompleteCollectionError(RuntimeError):
+    """Raised when a focused view cannot represent a truncated collection safely."""
 
 
 class NetworkDriver(ABC):
@@ -57,6 +73,42 @@ class NetworkDriver(ABC):
 
     @abstractmethod
     async def get_firewall_policies(self) -> Sequence[FirewallPolicy]: ...
+
+    @abstractmethod
+    async def get_ha_status(self) -> HAStatus: ...
+
+    @abstractmethod
+    async def get_ha_members(self) -> Sequence[HAMember]: ...
+
+    @abstractmethod
+    async def get_sdwan_status(self) -> SDWANStatus: ...
+
+    @abstractmethod
+    async def get_sdwan_members(self) -> Sequence[SDWANMember]: ...
+
+    @abstractmethod
+    async def get_sdwan_health_checks(self) -> Sequence[SDWANHealthCheck]: ...
+
+    @abstractmethod
+    async def get_ipsec_status(self) -> IPsecStatus: ...
+
+    @abstractmethod
+    async def get_ipsec_tunnels(self) -> Sequence[IPsecTunnel]: ...
+
+    @abstractmethod
+    async def get_bgp_status(self) -> BGPStatus: ...
+
+    @abstractmethod
+    async def get_bgp_neighbors(self) -> Sequence[BGPNeighbor]: ...
+
+    @abstractmethod
+    async def get_ospf_status(self) -> OSPFStatus: ...
+
+    @abstractmethod
+    async def get_ospf_neighbors(self) -> Sequence[OSPFNeighbor]: ...
+
+    @abstractmethod
+    async def get_route_summary(self) -> RouteSummary: ...
 
     @abstractmethod
     async def ping(self, destination: IPv4Address | IPv6Address) -> PingResult: ...

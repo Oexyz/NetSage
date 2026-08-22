@@ -13,6 +13,7 @@ from netsage.cli import state_commands
 from netsage.cli.main import app
 from netsage.cli.shell import NetSageInteractiveShell
 from netsage.drivers.fortios.catalog import registry as catalog_registry
+from netsage.investigations import FortiOSInvestigationFocus
 from netsage.state import LocalState, StatePaths
 
 runner = CliRunner()
@@ -129,6 +130,39 @@ def test_devices_one_shot_and_shell_share_handler_and_output(
     assert "NetSage devices" in one_shot.output
     assert "NetSage devices" in interactive.output
     assert calls == 2
+
+
+def test_investigation_focus_one_shot_and_shell_share_handler(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, bool, FortiOSInvestigationFocus]] = []
+
+    def investigate(
+        device: str,
+        *,
+        ephemeral: bool = False,
+        focus: FortiOSInvestigationFocus = FortiOSInvestigationFocus.HEALTH,
+    ) -> None:
+        calls.append((device, ephemeral, focus))
+
+    monkeypatch.setattr(main_module, "investigate_device", investigate)
+
+    one_shot = runner.invoke(
+        app,
+        ["investigate", "firewall-example", "--ephemeral", "--focus", "ipsec"],
+    )
+    interactive = runner.invoke(
+        app,
+        [],
+        input="investigate firewall-example --ephemeral --focus ipsec\nexit\n",
+    )
+
+    assert one_shot.exit_code == 0
+    assert interactive.exit_code == 0
+    assert calls == [
+        ("firewall-example", True, FortiOSInvestigationFocus.IPSEC),
+        ("firewall-example", True, FortiOSInvestigationFocus.IPSEC),
+    ]
 
 
 def test_unknown_and_os_shell_input_never_executes_processes(

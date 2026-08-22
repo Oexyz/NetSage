@@ -6,11 +6,16 @@ from ipaddress import IPv4Network
 from uuid import UUID, uuid4
 
 from netsage.evidence import (
+    BGPStatusEvidencePayload,
     EvidenceCollectionFailure,
     EvidenceCollector,
     EvidenceEnvelope,
+    HAStatusEvidencePayload,
     InterfacesEvidencePayload,
+    IPsecStatusEvidencePayload,
+    OSPFStatusEvidencePayload,
     RoutesEvidencePayload,
+    SDWANStatusEvidencePayload,
     SystemHealthEvidencePayload,
 )
 from netsage.investigations.models import (
@@ -18,6 +23,7 @@ from netsage.investigations.models import (
     DiagnosisStrength,
     Finding,
     FindingSeverity,
+    FortiOSInvestigationFocus,
     Investigation,
     InvestigationKind,
     InvestigationReport,
@@ -26,9 +32,16 @@ from netsage.investigations.models import (
 from netsage.models import (
     HEALTH_DEGRADED_THRESHOLD_PERCENT,
     HEALTH_UNHEALTHY_THRESHOLD_PERCENT,
+    BGPSessionState,
     Capability,
+    HASynchronizationState,
     HealthStatus,
     InterfaceState,
+    IPsecPhaseState,
+    IPsecStatus,
+    OSPFNeighborState,
+    SDWANPathState,
+    SDWANSLAState,
 )
 from netsage.security import SecretRedactor
 
@@ -38,6 +51,11 @@ _MISSING_LABELS = {
     "get_interfaces": "interface state",
     "get_routes": "route table",
     "get_system_health": "system health",
+    "get_ha_status": "HA status",
+    "get_sdwan_status": "SD-WAN status",
+    "get_ipsec_status": "IPsec status",
+    "get_bgp_status": "BGP status",
+    "get_ospf_status": "OSPF status",
 }
 
 
@@ -80,6 +98,462 @@ class FortiOSInvestigator:
                     strength=DiagnosisStrength.CONFIRMED,
                     evidence_ids=(route_evidence.evidence_id,),
                 )
+        return self._report(investigation, evidence, failures, findings, diagnosis)
+
+    async def investigate(
+        self, device_id: str, focus: FortiOSInvestigationFocus
+    ) -> InvestigationReport:
+        """Dispatch one explicit feature-aware workflow without collecting every domain."""
+
+        if focus is FortiOSInvestigationFocus.HEALTH:
+            return await self.investigate_health(device_id)
+        if focus is FortiOSInvestigationFocus.HA:
+            return await self.investigate_ha(device_id)
+        if focus is FortiOSInvestigationFocus.SDWAN:
+            return await self.investigate_sdwan(device_id)
+        if focus is FortiOSInvestigationFocus.IPSEC:
+            return await self.investigate_ipsec(device_id)
+        return await self.investigate_dynamic_routing(device_id)
+
+    async def investigate_ha(self, device_id: str) -> InvestigationReport:
+        investigation = self._start(device_id, InvestigationKind.HA_HEALTH)
+        observation = await self._collector.collect(
+            investigation_id=investigation.investigation_id,
+            device_id=device_id,
+            operation="get_ha_status",
+            capability=Capability.HA,
+        )
+        evidence, failures = self._partition((observation,))
+        diagnosis = self._partial_diagnosis(evidence, failures)
+        findings: list[Finding] = []
+        status_observation = self._find_payload(evidence, HAStatusEvidencePayload)
+        if status_observation is not None:
+            item, payload = status_observation
+            status = payload.status
+            if status.truncated:
+                diagnosis = self._insufficient(
+                    evidence,
+                    "HA member collection was truncated",
+                )
+            elif status.enabled is False:
+                findings.append(
+                    self._finding(
+                        "ha_disabled",
+                        "HA disabled",
+                        "FortiOS reports that HA is not enabled.",
+                        FindingSeverity.INFO,
+                        item,
+                    )
+                )
+            else:
+                out_of_sync = tuple(
+                    member
+                    for member in status.members
+                    if member.synchronization is HASynchronizationState.OUT_OF_SYNC
+                )
+                if out_of_sync:
+                    findings.append(
+                        self._finding(
+                            "ha_configuration_out_of_sync",
+                            "HA configuration out of sync",
+                            f"FortiOS reports {len(out_of_sync)} HA member(s) out of sync.",
+                            FindingSeverity.WARNING,
+                            item,
+                        )
+                    )
+                    diagnosis = Diagnosis(
+                        summary="FortiOS directly reports HA configuration out of sync.",
+                        strength=DiagnosisStrength.CONFIRMED,
+                        evidence_ids=(item.evidence_id,),
+                    )
+                elif status.health in {HealthStatus.DEGRADED, HealthStatus.UNHEALTHY}:
+                    severity = (
+                        FindingSeverity.CRITICAL
+                        if status.health is HealthStatus.UNHEALTHY
+                        else FindingSeverity.WARNING
+                    )
+                    findings.append(
+                        self._finding(
+                            "ha_health_degraded",
+                            "HA health degraded",
+                            f"FortiOS reports HA health as {status.health.value}.",
+                            severity,
+                            item,
+                        )
+                    )
+                    diagnosis = Diagnosis(
+                        summary="FortiOS directly reports degraded HA health.",
+                        strength=DiagnosisStrength.CONFIRMED,
+                        evidence_ids=(item.evidence_id,),
+                    )
+                elif status.enabled and status.members:
+                    findings.append(
+                        self._finding(
+                            "ha_cluster_healthy",
+                            "HA cluster healthy",
+                            "Observed HA members are synchronized and HA health is not degraded.",
+                            FindingSeverity.INFO,
+                            item,
+                        )
+                    )
+                if status.enabled and len(status.members) < 2:
+                    findings.append(
+                        self._finding(
+                            "ha_member_count_low",
+                            "Fewer than two HA members observed",
+                            "Only one HA member was observed; expected membership is not known.",
+                            FindingSeverity.WARNING,
+                            item,
+                        )
+                    )
+        return self._report(investigation, evidence, failures, findings, diagnosis)
+
+    async def investigate_sdwan(self, device_id: str) -> InvestigationReport:
+        investigation = self._start(device_id, InvestigationKind.SDWAN_HEALTH)
+        observation = await self._collector.collect(
+            investigation_id=investigation.investigation_id,
+            device_id=device_id,
+            operation="get_sdwan_status",
+            capability=Capability.SDWAN,
+        )
+        evidence, failures = self._partition((observation,))
+        diagnosis = self._partial_diagnosis(evidence, failures)
+        findings: list[Finding] = []
+        status_observation = self._find_payload(evidence, SDWANStatusEvidencePayload)
+        if status_observation is not None:
+            item, payload = status_observation
+            status = payload.status
+            if status.truncated:
+                diagnosis = self._insufficient(evidence, "SD-WAN collection was truncated")
+            elif status.enabled is False:
+                findings.append(
+                    self._finding(
+                        "sdwan_disabled",
+                        "SD-WAN disabled",
+                        "FortiOS reports that SD-WAN is not enabled.",
+                        FindingSeverity.INFO,
+                        item,
+                    )
+                )
+            elif status.enabled and not status.health_checks:
+                diagnosis = self._insufficient(
+                    evidence,
+                    "SD-WAN health-check state was unavailable",
+                )
+            else:
+                dead = tuple(
+                    check for check in status.health_checks if check.state is SDWANPathState.DEAD
+                )
+                alive = tuple(
+                    check for check in status.health_checks if check.state is SDWANPathState.ALIVE
+                )
+                failing_sla = tuple(
+                    check
+                    for check in status.health_checks
+                    if check.sla_state is SDWANSLAState.FAILING
+                )
+                if dead:
+                    findings.append(
+                        self._finding(
+                            "sdwan_member_down",
+                            "SD-WAN path down",
+                            f"FortiOS reports {len(dead)} SD-WAN health-check path(s) dead.",
+                            FindingSeverity.WARNING,
+                            item,
+                        )
+                    )
+                if failing_sla:
+                    findings.append(
+                        self._finding(
+                            "sdwan_sla_failing",
+                            "SD-WAN SLA failing",
+                            f"FortiOS reports {len(failing_sla)} path(s) failing SLA.",
+                            FindingSeverity.WARNING,
+                            item,
+                        )
+                    )
+                if dead and alive:
+                    findings.append(
+                        self._finding(
+                            "sdwan_healthy_alternative",
+                            "Healthy SD-WAN alternative available",
+                            "At least one dead and one alive SD-WAN path were observed.",
+                            FindingSeverity.INFO,
+                            item,
+                        )
+                    )
+                if status.health_checks and not alive:
+                    diagnosis = Diagnosis(
+                        summary="FortiOS reports no alive SD-WAN health-check path.",
+                        strength=DiagnosisStrength.CONFIRMED,
+                        evidence_ids=(item.evidence_id,),
+                    )
+                elif not dead and not failing_sla and status.health_checks:
+                    findings.append(
+                        self._finding(
+                            "sdwan_paths_healthy",
+                            "SD-WAN paths healthy",
+                            "FortiOS reports the observed SD-WAN paths alive with "
+                            "no explicit SLA failure.",
+                            FindingSeverity.INFO,
+                            item,
+                        )
+                    )
+        return self._report(investigation, evidence, failures, findings, diagnosis)
+
+    async def investigate_ipsec(self, device_id: str) -> InvestigationReport:
+        investigation = self._start(device_id, InvestigationKind.IPSEC_HEALTH)
+        observations = await self._collect(
+            investigation,
+            (
+                ("get_ipsec_status", Capability.IPSEC),
+                ("get_interfaces", Capability.INTERFACES),
+            ),
+        )
+        evidence, failures = self._partition(observations)
+        diagnosis = self._partial_diagnosis(evidence, failures)
+        findings: list[Finding] = []
+        ipsec_observation = self._find_payload(evidence, IPsecStatusEvidencePayload)
+        interface_observation = self._find_payload(evidence, InterfacesEvidencePayload)
+        if ipsec_observation is not None:
+            ipsec_evidence, payload = ipsec_observation
+            status = payload.status
+            if status.truncated:
+                diagnosis = self._insufficient(evidence, "IPsec collection was truncated")
+            elif status.enabled is False:
+                findings.append(
+                    self._finding(
+                        "ipsec_disabled",
+                        "IPsec disabled",
+                        "FortiOS reports that IPsec is not enabled.",
+                        FindingSeverity.INFO,
+                        ipsec_evidence,
+                    )
+                )
+            elif status.enabled is None and not status.phase1 and not status.tunnels:
+                diagnosis = self._insufficient(
+                    evidence,
+                    "active IKE or IPsec security-association state was unavailable",
+                )
+            else:
+                down_phase1 = tuple(
+                    phase for phase in status.phase1 if phase.state is IPsecPhaseState.DOWN
+                )
+                missing_phase2 = tuple(
+                    tunnel
+                    for tunnel in status.tunnels
+                    if tunnel.phase1_state is IPsecPhaseState.ESTABLISHED
+                    and not any(
+                        phase.state in {IPsecPhaseState.ESTABLISHED, IPsecPhaseState.REKEYING}
+                        for phase in tunnel.phase2
+                    )
+                )
+                if down_phase1:
+                    findings.append(
+                        self._finding(
+                            "ipsec_phase1_down",
+                            "IPsec Phase 1 down",
+                            f"FortiOS reports {len(down_phase1)} Phase 1 association(s) down.",
+                            FindingSeverity.WARNING,
+                            ipsec_evidence,
+                        )
+                    )
+                    diagnosis = Diagnosis(
+                        summary=(
+                            "FortiOS directly reports IPsec Phase 1 down; the cause "
+                            "is not established."
+                        ),
+                        strength=DiagnosisStrength.CONFIRMED,
+                        evidence_ids=(ipsec_evidence.evidence_id,),
+                    )
+                if missing_phase2:
+                    findings.append(
+                        self._finding(
+                            "ipsec_phase2_missing",
+                            "IPsec Phase 2 unavailable",
+                            f"Observed {len(missing_phase2)} established Phase 1 "
+                            "tunnel(s) without an active Phase 2 SA.",
+                            FindingSeverity.WARNING,
+                            ipsec_evidence,
+                        )
+                    )
+                    diagnosis = Diagnosis(
+                        summary="Phase 1 is established but no active Phase 2 SA was observed.",
+                        strength=DiagnosisStrength.CONFIRMED,
+                        evidence_ids=(ipsec_evidence.evidence_id,),
+                    )
+                correlation = self._ipsec_interface_correlation(
+                    status,
+                    interface_observation,
+                )
+                if correlation is not None:
+                    interface_evidence, count = correlation
+                    findings.append(
+                        Finding(
+                            code="ipsec_bound_interface_down",
+                            title="IPsec tunnel and bound interface down",
+                            summary=(
+                                f"Observed {count} down IPsec tunnel(s) bound to a down interface."
+                            ),
+                            severity=FindingSeverity.CRITICAL,
+                            evidence_ids=(
+                                ipsec_evidence.evidence_id,
+                                interface_evidence.evidence_id,
+                            ),
+                        )
+                    )
+                    diagnosis = Diagnosis(
+                        summary=(
+                            "IPsec is down while its bound interface is also down; "
+                            "evidence places the fault domain at or before that interface."
+                        ),
+                        strength=DiagnosisStrength.STRONG,
+                        evidence_ids=(
+                            ipsec_evidence.evidence_id,
+                            interface_evidence.evidence_id,
+                        ),
+                    )
+                if status.tunnels and not down_phase1 and not missing_phase2:
+                    findings.append(
+                        self._finding(
+                            "ipsec_tunnels_established",
+                            "IPsec tunnels established",
+                            "No down Phase 1 or missing active Phase 2 association was observed.",
+                            FindingSeverity.INFO,
+                            ipsec_evidence,
+                        )
+                    )
+        if failures:
+            diagnosis = self._partial_diagnosis(evidence, failures)
+        return self._report(investigation, evidence, failures, findings, diagnosis)
+
+    async def investigate_dynamic_routing(self, device_id: str) -> InvestigationReport:
+        investigation = self._start(device_id, InvestigationKind.DYNAMIC_ROUTING_HEALTH)
+        observations = await self._collect(
+            investigation,
+            (
+                ("get_bgp_status", Capability.BGP),
+                ("get_ospf_status", Capability.OSPF),
+            ),
+        )
+        evidence, failures = self._partition(observations)
+        diagnosis = self._partial_diagnosis(evidence, failures)
+        findings: list[Finding] = []
+        affected_evidence: list[UUID] = []
+        bgp_observation = self._find_payload(evidence, BGPStatusEvidencePayload)
+        if bgp_observation is not None:
+            item, bgp_payload = bgp_observation
+            bgp_status = bgp_payload.status
+            if bgp_status.truncated:
+                diagnosis = self._insufficient(evidence, "BGP neighbor collection was truncated")
+            elif bgp_status.enabled is False:
+                findings.append(
+                    self._finding(
+                        "bgp_disabled",
+                        "BGP disabled",
+                        "FortiOS reports that BGP is not enabled.",
+                        FindingSeverity.INFO,
+                        item,
+                    )
+                )
+            else:
+                down = tuple(
+                    neighbor
+                    for neighbor in bgp_status.neighbors
+                    if neighbor.state is not BGPSessionState.ESTABLISHED
+                )
+                zero_prefixes = tuple(
+                    neighbor
+                    for neighbor in bgp_status.neighbors
+                    if neighbor.state is BGPSessionState.ESTABLISHED
+                    and neighbor.prefixes_received == 0
+                )
+                if down:
+                    findings.append(
+                        self._finding(
+                            "bgp_neighbor_not_established",
+                            "BGP neighbor not established",
+                            f"FortiOS reports {len(down)} BGP neighbor(s) not established.",
+                            FindingSeverity.WARNING,
+                            item,
+                        )
+                    )
+                    affected_evidence.append(item.evidence_id)
+                if zero_prefixes:
+                    findings.append(
+                        self._finding(
+                            "bgp_zero_received_prefixes",
+                            "BGP neighbor has no received prefixes",
+                            f"Observed {len(zero_prefixes)} established BGP neighbor(s) "
+                            "with zero received prefixes.",
+                            FindingSeverity.WARNING,
+                            item,
+                        )
+                    )
+                if bgp_status.enabled and not bgp_status.neighbors:
+                    findings.append(
+                        self._finding(
+                            "bgp_no_neighbors",
+                            "No BGP neighbors observed",
+                            "BGP is present but no neighbor rows were observed.",
+                            FindingSeverity.WARNING,
+                            item,
+                        )
+                    )
+        ospf_observation = self._find_payload(evidence, OSPFStatusEvidencePayload)
+        if ospf_observation is not None:
+            item, ospf_payload = ospf_observation
+            ospf_status = ospf_payload.status
+            if ospf_status.truncated:
+                diagnosis = self._insufficient(evidence, "OSPF neighbor collection was truncated")
+            elif ospf_status.enabled is False:
+                findings.append(
+                    self._finding(
+                        "ospf_disabled",
+                        "OSPF disabled",
+                        "FortiOS reports that OSPF is not enabled.",
+                        FindingSeverity.INFO,
+                        item,
+                    )
+                )
+            else:
+                not_full = tuple(
+                    neighbor
+                    for neighbor in ospf_status.neighbors
+                    if neighbor.state is not OSPFNeighborState.FULL
+                )
+                if not_full:
+                    findings.append(
+                        self._finding(
+                            "ospf_neighbor_not_full",
+                            "OSPF neighbor not FULL",
+                            f"FortiOS reports {len(not_full)} OSPF neighbor(s) not FULL.",
+                            FindingSeverity.WARNING,
+                            item,
+                        )
+                    )
+                    affected_evidence.append(item.evidence_id)
+                if ospf_status.enabled and not ospf_status.neighbors:
+                    findings.append(
+                        self._finding(
+                            "ospf_no_neighbors",
+                            "No OSPF neighbors observed",
+                            "OSPF is present but no neighbor rows were observed.",
+                            FindingSeverity.WARNING,
+                            item,
+                        )
+                    )
+        if affected_evidence and diagnosis is None:
+            diagnosis = Diagnosis(
+                summary=(
+                    "Dynamic-routing neighbor state is degraded; the underlying cause "
+                    "is not established."
+                ),
+                strength=DiagnosisStrength.CONFIRMED,
+                evidence_ids=tuple(dict.fromkeys(affected_evidence)),
+            )
+        if failures:
+            diagnosis = self._partial_diagnosis(evidence, failures)
         return self._report(investigation, evidence, failures, findings, diagnosis)
 
     async def investigate_default_route(self, device_id: str) -> InvestigationReport:
@@ -222,6 +696,54 @@ class FortiOSInvestigator:
                     missing_evidence=(f"complete state for interface {safe_interface}",),
                 )
         return self._report(investigation, evidence, failures, findings, diagnosis)
+
+    @staticmethod
+    def _finding(
+        code: str,
+        title: str,
+        summary: str,
+        severity: FindingSeverity,
+        evidence: EvidenceEnvelope,
+    ) -> Finding:
+        return Finding(
+            code=code,
+            title=title,
+            summary=summary,
+            severity=severity,
+            evidence_ids=(evidence.evidence_id,),
+        )
+
+    @staticmethod
+    def _insufficient(evidence: Sequence[EvidenceEnvelope], missing: str) -> Diagnosis:
+        return Diagnosis(
+            summary="A reliable conclusion is not possible with incomplete semantic evidence.",
+            strength=DiagnosisStrength.INSUFFICIENT,
+            evidence_ids=tuple(item.evidence_id for item in evidence),
+            missing_evidence=(missing,),
+        )
+
+    @staticmethod
+    def _ipsec_interface_correlation(
+        status: IPsecStatus,
+        interface_observation: tuple[EvidenceEnvelope, InterfacesEvidencePayload] | None,
+    ) -> tuple[EvidenceEnvelope, int] | None:
+        if interface_observation is None:
+            return None
+        interface_evidence, interface_payload = interface_observation
+        down_interfaces = {
+            interface.name
+            for interface in interface_payload.interfaces
+            if interface.admin_state is InterfaceState.DOWN
+            or interface.operational_state is InterfaceState.DOWN
+        }
+        affected = tuple(
+            tunnel
+            for tunnel in status.tunnels
+            if tunnel.phase1_state is IPsecPhaseState.DOWN
+            and tunnel.interface is not None
+            and tunnel.interface in down_interfaces
+        )
+        return (interface_evidence, len(affected)) if affected else None
 
     def _start(
         self,

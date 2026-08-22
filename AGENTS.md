@@ -93,18 +93,26 @@ The current local verification snapshot is recorded in `CURRENT_MILESTONE.md`.
 Do not copy historical test totals from this guide when newer live gate output is
 available.
 
-As of 2026-08-22, Ruff format/check and strict mypy pass for 101 source files,
-pytest reports 286 passing tests with 86.50% coverage, the generated-catalog drift
+As of 2026-08-22, Ruff format/check and strict mypy pass for 110 source files,
+pytest reports 337 passing tests with 86.89% coverage, the generated-catalog drift
 check is clean, and all configured pre-commit hooks pass. Native ChatGPT/Codex
 OAuth login, keyring storage, strict synthetic inference, refresh rotation, an
 authorized FortiOS AI investigation, and the rebuilt/installed Windows standalone
 were verified live without configuration changes or token leaks.
 
+The FortiOS semantic milestone adds 12 bounded operations, five AI-promoted
+status tools, five typed status Evidence domains, four deterministic Focus
+workflows, and IKE/IPsec key-material redaction. HA, explicit disabled SD-WAN,
+IPsec, and OSPF were verified on authorized hardware; ambiguous empty BGP output
+remained missing Evidence. Native OAuth semantic verification failed safely
+before a tool call with a typed invalid-output category.
+
 FortiOS Read-Only Catalog Execution Foundation is published on `main` and
 CI-green at `ed9adfa`. Native Codex OAuth is complete in the separate feature
-commit `ee128e9`. The active milestone is Status Reclassification &
-Alpha Readiness; it is documentation-only. Consult `CURRENT_MILESTONE.md`, Git,
-and current gate output for publication state.
+commit `ee128e9`, and Status Reclassification & Alpha Readiness is published at
+`f81328d`. The active milestone is FortiOS Semantic Observability & Evidence
+Expansion. Consult `CURRENT_MILESTONE.md`, Git, and current gate output for its
+verification/publication state.
 `fortios.md` is local copyrighted reference material and must remain ignored;
 generated metadata, tests, and honest coverage documentation are the repository
 artifacts.
@@ -222,7 +230,8 @@ compatibility, not because its local implementation lacks testing.
 - `NetworkDriver` is an async, vendor-neutral, read-only abstract contract with
   `get_facts`, `get_interfaces`, `get_vlans`, `get_mac_table`, `get_arp_table`,
   `get_routes`, `get_lldp_neighbors`, `get_system_health`,
-  `get_firewall_policies`, `ping`, and `traceroute`.
+  `get_firewall_policies`, typed HA/SD-WAN/IPsec/BGP/OSPF status and focused
+  views, route summary, `ping`, and `traceroute`.
 - `AIProvider` accepts only sanitized context and broker-owned `StructuredTool`
   definitions and returns typed provider-neutral final/tool-call responses.
   `CodexOAuthProvider` implements native experimental ChatGPT/Codex OAuth;
@@ -253,14 +262,17 @@ compatibility, not because its local implementation lacks testing.
 - Inventory, site, and device-group models validate references. The default
   Observe policy denies configuration and destructive operations.
 - `SecretRedactor` handles sensitive structured fields, common raw-output
-  patterns, private keys, token forms, and explicitly known credential values.
+  patterns, private keys, token forms, FortiOS IKE/IPsec key material, and
+  explicitly known credential values.
 - `FakeDriver` exposes only explicitly configured typed fixtures and raises for
   unsupported capabilities.
 - The FortiOS package contains the first real read-only driver. Its fixed SSH
   allowlist supports facts, interfaces, VLANs, ARP, routes, health, IPv4 firewall
-  policies, and policy-controlled IP-only ping/traceroute. Host-key pinning is
-  mandatory, credentials resolve only inside the trusted transport, and paged
-  output is advanced without changing the device's global console configuration.
+  policies, HA, SD-WAN, IPsec, BGP, OSPF, and policy-controlled IP-only
+  ping/traceroute. Three source-traceable argument-free semantic promotions use
+  fixed Catalog IDs; callers still cannot supply IDs or command strings.
+  Host-key pinning is mandatory, credentials resolve only inside the trusted
+  transport, and paging never changes global console configuration.
 - The generated FortiOS 7.2.13 knowledge catalog is separate from that transport
   allowlist. It records all source-derived definitions with policy, promotion,
   argument, and source metadata. The expert executor promotes 515 of 1,049
@@ -276,13 +288,14 @@ compatibility, not because its local implementation lacks testing.
   (`aruba_aoscx`) remain driver placeholders.
 - `EvidenceEnvelope` retains typed normalized payloads, UTC timestamps, explicit
   untrusted-data marking, UUID references, and non-secret provenance. Evidence is
-  created only from Broker results and stored in a secret-rejecting in-memory
-  store; persistence remains future work.
+  created only from Broker results and stored in a secret-rejecting in-memory or
+  SQLite store. New semantic collections are bounded and preserve truncation.
 - The deterministic investigation domain supports FortiOS health, active IPv4
-  default-route, and interface-state workflows with findings, qualitative
-  diagnoses, partial-evidence handling, and AI-independent reports. The complete
-  health-investigation CLI was live-verified against an authorized FortiOS 7.2.13
-  device without persisting credentials, evidence, or raw output.
+  default-route, interface-state, HA, SD-WAN, IPsec, and dynamic-routing workflows
+  with findings, qualitative diagnoses, partial-evidence handling, and
+  AI-independent reports. Focused semantic workflows were live-verified without
+  persisting credentials or raw output; unavailable BGP state remains missing
+  Evidence.
 - Topology and incidents remain scaffolding only. The bounded AgentRuntime and
   FortiOS-only AI `ask` composition are implemented; no autonomous device or
   local-shell agent exists.
@@ -298,7 +311,9 @@ compatibility, not because its local implementation lacks testing.
   configured SecretRedactor recognizes credential material.
 - `AgentRuntime` has hard step/tool budgets, repeat protection, Broker-only tool
   execution, Evidence-only results, and final Evidence-reference validation.
-  `FakeAIProvider` is deterministic and performs no external traffic.
+  `FakeAIProvider` is deterministic and performs no external traffic. Only five
+  comprehensive FortiOS semantic status tools are AI-promoted; focused views and
+  every Catalog command remain AI-invisible.
 - `CodexOAuthProvider` uses current device authorization and the isolated Codex
   backend, keeps one atomically activated token-bundle generation under keyring service
   `NetSage AI OpenAI Codex`, serializes refresh, follows no redirects, identifies
@@ -413,7 +428,7 @@ Never put vulnerability details or secrets in a public issue.
 src/netsage/
   cli/              Typer/Rich one-shot CLI, interactive shell, and catalog commands
   distribution/     Safe standalone installation helpers
-  drivers/          Vendor-neutral contracts plus FortiOS driver/catalog
+  drivers/          Vendor-neutral contracts plus FortiOS driver/catalog/semantic parsers
   broker/           Allowlisted structured tool dispatch
   credentials/      Profiles, OS-keyring passwords, and isolation contracts
   models/           Validated non-secret device and command-result models
@@ -433,7 +448,7 @@ src/netsage/
 tests/unit/          CLI, contracts, broker, and Windows distribution tests
 tests/install/       Linux installer shell test
 tests/integration/   Reserved for later integration tests
-tests/fixtures/      Vendor-specific sanitized fixtures; currently placeholders
+tests/fixtures/      Synthetic vendor-specific parser fixtures; currently FortiOS
 examples/            Safe example configuration
 scripts/             Native executable build and packaging helpers
 .github/workflows/   CI and tagged-release workflows
@@ -512,7 +527,8 @@ Do not imply that the following exist, and do not add them incidentally:
 
 ## Next recommended milestone
 
-Complete Status Reclassification & Alpha Readiness before beginning anything
-else. After it is published, select one explicitly requested roadmap scope. Do
-not automatically begin another provider, vendor, discovery, topology, probe,
-vantage-point, MCP, Web, or configuration milestone.
+Complete FortiOS Semantic Observability & Evidence Expansion before beginning
+anything else. The next milestone should remain FortiOS until the documented
+Supported-readiness gaps are closed; do not automatically begin another provider,
+vendor, discovery, topology, probe, vantage-point, MCP, Web, or configuration
+milestone.

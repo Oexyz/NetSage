@@ -36,7 +36,8 @@ shell, password, private-key, or API-token access.
 | Supported | AI boundary and AgentRuntime | Allowlisted AIContext, Broker-owned tools, Evidence validation, hard limits, and deterministic/provider separation |
 | Supported | Interactive shell | Shared-handler NetSage REPL with quoting/help/cancellation tests and no OS-shell fallback |
 | Beta | FortiGate / FortiOS | Live-verified read-only driver and onboarding; firmware/model compatibility breadth remains limited |
-| Beta | Deterministic FortiOS investigations | Health, default-route, interface-state, and partial-Evidence workflows |
+| Beta | Deterministic FortiOS investigations | Health, route, interface, HA, SD-WAN, IPsec, and dynamic-routing workflows |
+| Beta | FortiOS semantic observability | 12 typed HA, SD-WAN, IPsec, BGP, OSPF, and route-summary operations with bounded Evidence |
 | Beta | FortiOS command knowledge | 19,030 classified FortiOS 7.2.13 definitions; knowledge coverage is not universal FortiOS support |
 | Beta | Safe FortiOS catalog execution | 515 bounded READ_ONLY definitions; 362 require review and 172 are non-executable |
 | Beta | OpenAI API | Official API-key-backed provider with strict output and isolated keyring storage |
@@ -123,6 +124,7 @@ uv run netsage device add
 uv run netsage devices
 uv run netsage device test fortigate-example
 uv run netsage investigate fortigate-example
+uv run netsage investigate fortigate-example --focus ha
 uv run netsage investigations
 uv run netsage audit --limit 20
 uv run netsage ai codex login
@@ -247,6 +249,7 @@ netsage credentials rotate PROFILE
 netsage device add|show|test|remove|trust-reset
 netsage devices
 netsage investigate DEVICE
+netsage investigate DEVICE --focus health|ha|sdwan|ipsec|routing
 netsage investigate DEVICE --ephemeral
 netsage investigations
 netsage investigation show|remove UUID
@@ -307,6 +310,8 @@ generated runtime manifest. Current measured coverage is:
 - 19,030 discovered and catalogued definitions (100% generator coverage);
 - 1,049 read-only, 2,758 diagnostic, 14,390 configuration, and 833 destructive;
 - 515 READ_ONLY definitions safely executable as bounded `SANITIZED_TEXT`;
+- 12 additional semantic operations with typed output and Evidence;
+- 5 comprehensive semantic status tools exposed through the AI Broker boundary;
 - 362 READ_ONLY definitions require review and 172 are non-executable;
 - 2 existing structured diagnostic commands with typed parsers; all 2,758
   diagnostics remain denied by default through Catalog Execution;
@@ -427,16 +432,30 @@ optional Codex App Server adapter, and separate OpenAI API provider.
 ### FortiGate read-only driver and onboarding — beta
 
 - Host-key-pinned AsyncSSH transport and credential isolation
-- Typed facts, interfaces, VLANs, ARP, routes, health, and firewall policies
+- Typed facts, interfaces, VLANs, ARP, routes, health, firewall policies, HA,
+  SD-WAN, IPsec, BGP, and OSPF
 - Policy-controlled IP-only ping and traceroute
 - Live-verified Device-ID onboarding and read-only operations
 - Compatibility evidence is concentrated on FortiOS 7.2.13 and a small hardware matrix
 
 ### Deterministic FortiOS investigations — beta
 
-- Health, active-default-route, interface-state, and partial-Evidence workflows
+- Health, active-default-route, interface-state, HA, SD-WAN, IPsec, and
+  dynamic-routing workflows
 - Explicit `INSUFFICIENT` results when required observations are unavailable
 - AI-independent reports and authorized live verification
+
+### FortiOS semantic observability — beta
+
+- 12 typed operations across HA, SD-WAN, IPsec, BGP, OSPF, and route summary
+- Bounded collections with explicit truncation and controlled unsupported output
+- Typed Evidence and deterministic findings without raw CLI or invented causes
+- Five comprehensive AI tools; focused views remain Broker-only
+- Representative HA, disabled SD-WAN, IPsec, and OSPF live verification
+- BGP remained missing Evidence on the available target and was not misreported
+  as disabled
+- Objective readiness remains **KEEP BETA**; see the
+  [semantic coverage matrix](docs/fortios-semantic-coverage.md)
 
 ### FortiOS command knowledge — beta
 

@@ -87,6 +87,13 @@ class ToolBroker:
         )
         return tuple(sorted(definitions, key=lambda item: item.name))
 
+    def ai_tools_for_device(self, device_name: str) -> tuple[ToolDefinition, ...]:
+        """Return only explicitly AI-promoted semantic operations."""
+
+        return tuple(
+            definition for definition in self.tools_for_device(device_name) if definition.ai_visible
+        )
+
     async def invoke(self, name: str, arguments: Mapping[str, object]) -> CommandResult:
         started = perf_counter()
         device_name = arguments.get("device")

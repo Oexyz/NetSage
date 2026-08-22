@@ -19,6 +19,7 @@ class ToolDefinition(BaseModel):
     name: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     capability: Capability
     operation_class: OperationClass = OperationClass.READ_ONLY
+    ai_visible: bool = True
     required_arguments: frozenset[str] = frozenset({"device"})
     optional_arguments: frozenset[str] = frozenset()
 

@@ -121,3 +121,10 @@ Promotion establishes that a definition is safe to attempt, not that every
 FortiGate model/build exposes it. A model-unavailable or permission-restricted
 command fails with a bounded transport category and safe Audit event; NetSage
 does not retry through raw CLI or another command.
+
+Semantic observability is a separate promotion decision. Three reviewed,
+argument-free Catalog IDs can be reached only through fixed Driver methods and a
+closed semantic enum; their text is immediately parsed into typed Evidence. They
+do not increase the 515-command expert subset, cannot be selected by a user or
+AI, and do not make `SANITIZED_TEXT` Evidence. See
+[FortiOS semantic coverage](fortios-semantic-coverage.md).

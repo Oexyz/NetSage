@@ -17,15 +17,27 @@ from netsage.evidence import (
 from netsage.models import (
     VLAN,
     ArpEntry,
+    BGPNeighbor,
+    BGPStatus,
     Capability,
     CommandResult,
     DataTrust,
     DeviceFacts,
     FirewallPolicy,
+    HAMember,
+    HAStatus,
     Interface,
+    IPsecStatus,
+    IPsecTunnel,
+    OSPFNeighbor,
+    OSPFStatus,
     PingResult,
     Platform,
     Route,
+    RouteSummary,
+    SDWANHealthCheck,
+    SDWANMember,
+    SDWANStatus,
     SystemHealth,
     TracerouteHop,
     TracerouteResult,
@@ -264,6 +276,127 @@ def test_factory_builds_typed_payloads_for_supported_operations(
         result=result,
     )
     assert evidence.payload.kind == expected_kind
+
+
+@pytest.mark.parametrize(
+    ("operation", "capability", "model", "many", "expected_kind"),
+    [
+        ("get_ha_status", Capability.HA, HAStatus(device_id="fortigate-lab"), False, "ha_status"),
+        (
+            "get_ha_members",
+            Capability.HA,
+            HAMember(device_id="fortigate-lab", member_id="member-a"),
+            True,
+            "ha_members",
+        ),
+        (
+            "get_sdwan_status",
+            Capability.SDWAN,
+            SDWANStatus(device_id="fortigate-lab"),
+            False,
+            "sdwan_status",
+        ),
+        (
+            "get_sdwan_members",
+            Capability.SDWAN,
+            SDWANMember(device_id="fortigate-lab", sequence=1),
+            True,
+            "sdwan_members",
+        ),
+        (
+            "get_sdwan_health_checks",
+            Capability.SDWAN,
+            SDWANHealthCheck(device_id="fortigate-lab", name="synthetic", member_sequence=1),
+            True,
+            "sdwan_health_checks",
+        ),
+        (
+            "get_ipsec_status",
+            Capability.IPSEC,
+            IPsecStatus(device_id="fortigate-lab"),
+            False,
+            "ipsec_status",
+        ),
+        (
+            "get_ipsec_tunnels",
+            Capability.IPSEC,
+            IPsecTunnel(device_id="fortigate-lab", name="synthetic"),
+            True,
+            "ipsec_tunnels",
+        ),
+        (
+            "get_bgp_status",
+            Capability.BGP,
+            BGPStatus(device_id="fortigate-lab"),
+            False,
+            "bgp_status",
+        ),
+        (
+            "get_bgp_neighbors",
+            Capability.BGP,
+            BGPNeighbor(
+                device_id="fortigate-lab",
+                address=ip_address("198.51.100.10"),
+                remote_as=65001,
+            ),
+            True,
+            "bgp_neighbors",
+        ),
+        (
+            "get_ospf_status",
+            Capability.OSPF,
+            OSPFStatus(device_id="fortigate-lab"),
+            False,
+            "ospf_status",
+        ),
+        (
+            "get_ospf_neighbors",
+            Capability.OSPF,
+            OSPFNeighbor(
+                device_id="fortigate-lab",
+                neighbor_id=ip_address("198.51.100.10"),
+            ),
+            True,
+            "ospf_neighbors",
+        ),
+        (
+            "get_route_summary",
+            Capability.ROUTES,
+            RouteSummary(
+                device_id="fortigate-lab",
+                total_routes=1,
+                active_routes=1,
+                default_routes=1,
+                active_default_routes=1,
+            ),
+            False,
+            "route_summary",
+        ),
+    ],
+)
+def test_factory_builds_typed_semantic_observability_payloads(
+    operation: str,
+    capability: Capability,
+    model: object,
+    many: bool,
+    expected_kind: str,
+) -> None:
+    assert hasattr(model, "model_dump")
+    serialized = model.model_dump(mode="json")  # type: ignore[union-attr]
+    output = {"results": [serialized]} if many else {"result": serialized}
+    evidence = factory_for(EVIDENCE_ID_1).create(
+        investigation_id=INVESTIGATION_ID,
+        capability=capability,
+        platform=Platform.FORTIOS,
+        driver="SyntheticDriver",
+        result=CommandResult(
+            device="fortigate-lab",
+            operation=operation,
+            output=output,
+        ),
+    )
+    assert evidence.payload.kind == expected_kind
+    assert evidence.trust is DataTrust.UNTRUSTED_DEVICE_DATA
 
 
 def test_prompt_injection_remains_data_and_known_secret_is_redacted() -> None:

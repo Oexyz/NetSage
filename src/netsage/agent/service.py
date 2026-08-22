@@ -40,6 +40,10 @@ class FortiOSAIInvestigationService:
         await self._provider.initialize()
         try:
             prepared = await self._runtime.prepare(device)
+            device = device.model_copy(update={"capabilities": prepared.driver.capabilities})
+            inventory = inventory.model_copy(
+                update={"devices": {**inventory.devices, device.name: device}}
+            )
             broker = ToolBroker(
                 inventory=inventory,
                 redactor=prepared.redactor,

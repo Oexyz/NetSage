@@ -42,6 +42,26 @@ _DESCRIPTIONS = {
     "get_routes": "Collect normalized active routes.",
     "get_system_health": "Collect normalized system health.",
     "get_firewall_policies": "Collect normalized IPv4 firewall policies.",
+    "get_ha_status": (
+        "Collect bounded HA mode, member, health, and synchronization Evidence; "
+        "it does not prove the cause of a failover or heartbeat failure."
+    ),
+    "get_sdwan_status": (
+        "Collect bounded SD-WAN member and FortiOS health-check Evidence; it does not "
+        "prove endpoint reachability or invent SLA thresholds."
+    ),
+    "get_ipsec_status": (
+        "Collect bounded IPsec Phase 1, Phase 2, SA, peer, and counter Evidence; it "
+        "does not expose keys or prove why negotiation failed."
+    ),
+    "get_bgp_status": (
+        "Collect bounded BGP router and neighbor session Evidence; a non-established "
+        "session does not by itself prove the root cause."
+    ),
+    "get_ospf_status": (
+        "Collect bounded OSPF process and neighbor-state Evidence; it does not prove "
+        "why a neighbor is missing or not FULL."
+    ),
     "ping": "Run a policy-controlled IP ping from the network device.",
     "traceroute": "Run a policy-controlled IP traceroute from the network device.",
 }
@@ -84,7 +104,7 @@ class AgentRuntime:
                 (),
                 AgentErrorCategory.INVALID_RESPONSE,
             )
-        definitions = self._broker.tools_for_device(device.name)
+        definitions = self._broker.ai_tools_for_device(device.name)
         tools = tuple(self._structured_tool(item) for item in definitions)
         tool_map = {item.name: item for item in definitions}
         results: list[AIToolResult] = []

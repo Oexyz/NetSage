@@ -27,6 +27,16 @@ netsage ask firewall-example "Check routing."
 netsage fortios run firewall-example fortios.execute.cpu.show --dry-run
 ```
 
+Feature-focused deterministic investigations use the same handler in both
+forms:
+
+```text
+netsage investigate firewall-example --focus ha
+netsage> investigate firewall-example --focus ha
+```
+
+Valid focuses are `health`, `ha`, `sdwan`, `ipsec`, and `routing`.
+
 ## Shared command implementation
 
 The shell tokenizes a line with `shlex` and invokes the same root Typer command

@@ -46,6 +46,60 @@ class StructuredDriverToolSet:
             ToolDefinition(name="get_firewall_policies", capability=Capability.FIREWALL),
             self.get_firewall_policies,
         )
+        broker.register(
+            ToolDefinition(name="get_ha_status", capability=Capability.HA),
+            self.get_ha_status,
+        )
+        broker.register(
+            ToolDefinition(name="get_ha_members", capability=Capability.HA, ai_visible=False),
+            self.get_ha_members,
+        )
+        broker.register(
+            ToolDefinition(name="get_sdwan_status", capability=Capability.SDWAN),
+            self.get_sdwan_status,
+        )
+        broker.register(
+            ToolDefinition(name="get_sdwan_members", capability=Capability.SDWAN, ai_visible=False),
+            self.get_sdwan_members,
+        )
+        broker.register(
+            ToolDefinition(
+                name="get_sdwan_health_checks",
+                capability=Capability.SDWAN,
+                ai_visible=False,
+            ),
+            self.get_sdwan_health_checks,
+        )
+        broker.register(
+            ToolDefinition(name="get_ipsec_status", capability=Capability.IPSEC),
+            self.get_ipsec_status,
+        )
+        broker.register(
+            ToolDefinition(name="get_ipsec_tunnels", capability=Capability.IPSEC, ai_visible=False),
+            self.get_ipsec_tunnels,
+        )
+        broker.register(
+            ToolDefinition(name="get_bgp_status", capability=Capability.BGP),
+            self.get_bgp_status,
+        )
+        broker.register(
+            ToolDefinition(name="get_bgp_neighbors", capability=Capability.BGP, ai_visible=False),
+            self.get_bgp_neighbors,
+        )
+        broker.register(
+            ToolDefinition(name="get_ospf_status", capability=Capability.OSPF),
+            self.get_ospf_status,
+        )
+        broker.register(
+            ToolDefinition(name="get_ospf_neighbors", capability=Capability.OSPF, ai_visible=False),
+            self.get_ospf_neighbors,
+        )
+        broker.register(
+            ToolDefinition(
+                name="get_route_summary", capability=Capability.ROUTES, ai_visible=False
+            ),
+            self.get_route_summary,
+        )
         diagnostic_arguments = frozenset({"device", "destination"})
         broker.register(
             ToolDefinition(
@@ -93,6 +147,66 @@ class StructuredDriverToolSet:
             "get_firewall_policies",
             arguments,
             await self._driver(arguments).get_firewall_policies(),
+        )
+
+    async def get_ha_status(self, arguments: Mapping[str, object]) -> CommandResult:
+        return self._one("get_ha_status", arguments, await self._driver(arguments).get_ha_status())
+
+    async def get_ha_members(self, arguments: Mapping[str, object]) -> CommandResult:
+        return self._many(
+            "get_ha_members", arguments, await self._driver(arguments).get_ha_members()
+        )
+
+    async def get_sdwan_status(self, arguments: Mapping[str, object]) -> CommandResult:
+        return self._one(
+            "get_sdwan_status", arguments, await self._driver(arguments).get_sdwan_status()
+        )
+
+    async def get_sdwan_members(self, arguments: Mapping[str, object]) -> CommandResult:
+        return self._many(
+            "get_sdwan_members", arguments, await self._driver(arguments).get_sdwan_members()
+        )
+
+    async def get_sdwan_health_checks(self, arguments: Mapping[str, object]) -> CommandResult:
+        return self._many(
+            "get_sdwan_health_checks",
+            arguments,
+            await self._driver(arguments).get_sdwan_health_checks(),
+        )
+
+    async def get_ipsec_status(self, arguments: Mapping[str, object]) -> CommandResult:
+        return self._one(
+            "get_ipsec_status", arguments, await self._driver(arguments).get_ipsec_status()
+        )
+
+    async def get_ipsec_tunnels(self, arguments: Mapping[str, object]) -> CommandResult:
+        return self._many(
+            "get_ipsec_tunnels", arguments, await self._driver(arguments).get_ipsec_tunnels()
+        )
+
+    async def get_bgp_status(self, arguments: Mapping[str, object]) -> CommandResult:
+        return self._one(
+            "get_bgp_status", arguments, await self._driver(arguments).get_bgp_status()
+        )
+
+    async def get_bgp_neighbors(self, arguments: Mapping[str, object]) -> CommandResult:
+        return self._many(
+            "get_bgp_neighbors", arguments, await self._driver(arguments).get_bgp_neighbors()
+        )
+
+    async def get_ospf_status(self, arguments: Mapping[str, object]) -> CommandResult:
+        return self._one(
+            "get_ospf_status", arguments, await self._driver(arguments).get_ospf_status()
+        )
+
+    async def get_ospf_neighbors(self, arguments: Mapping[str, object]) -> CommandResult:
+        return self._many(
+            "get_ospf_neighbors", arguments, await self._driver(arguments).get_ospf_neighbors()
+        )
+
+    async def get_route_summary(self, arguments: Mapping[str, object]) -> CommandResult:
+        return self._one(
+            "get_route_summary", arguments, await self._driver(arguments).get_route_summary()
         )
 
     async def ping(self, arguments: Mapping[str, object]) -> CommandResult:

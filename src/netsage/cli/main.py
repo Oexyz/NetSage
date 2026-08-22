@@ -6,6 +6,7 @@ import asyncio
 import shutil
 import sys
 from pathlib import Path
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -47,6 +48,7 @@ from netsage.evidence import EvidenceCollector, EvidenceFactory, InMemoryEvidenc
 from netsage.history import HISTORY_SCHEMA_VERSION, HistoryDatabase, HistoryError
 from netsage.inventory import Inventory
 from netsage.investigations import (
+    FortiOSInvestigationFocus,
     FortiOSInvestigator,
     InvestigationReport,
     render_investigation_report,
@@ -227,9 +229,16 @@ def investigate(
         "--ephemeral",
         help="Do not persist Investigation, Evidence, or Audit history.",
     ),
+    focus: Annotated[
+        FortiOSInvestigationFocus,
+        typer.Option(
+            "--focus",
+            help="Collect only the selected deterministic semantic domain.",
+        ),
+    ] = FortiOSInvestigationFocus.HEALTH,
 ) -> None:
     """Run a deterministic investigation for a stored logical Device ID."""
-    investigate_device(device_id, ephemeral=ephemeral)
+    investigate_device(device_id, ephemeral=ephemeral, focus=focus)
 
 
 @app.command()

@@ -13,6 +13,8 @@ from netsage.drivers.fortios import (
     FortiOSCommand,
     FortiOSCommandError,
     FortiOSRequest,
+    FortiOSSemanticCommand,
+    FortiOSSemanticRequest,
     FortiOSSSHTransport,
     discover_ssh_host_key,
 )
@@ -377,6 +379,34 @@ async def test_transport_executes_only_promoted_catalog_ids(
 
     assert output == "CPU status: synthetic"
     assert any("execute cpu show" in write for write in connection.process.stdin.writes)
+
+
+@pytest.mark.asyncio
+async def test_transport_executes_only_fixed_semantic_catalog_promotions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ike_canary = "0123456789abcdef0123456789abcdef"
+    connection = FakeConnection(f"list all ipsec tunnel in vd 0\nkey: {ike_canary}")
+
+    async def connect(*_args: object, **_kwargs: object) -> FakeConnection:
+        return connection
+
+    monkeypatch.setattr(transport_module.asyncssh, "connect", connect)
+    provider = EphemeralCredentialProvider(
+        "ephemeral-live",
+        Credential(username="readonly", secret="test-" + "only", kind=CredentialKind.PASSWORD),
+    )
+    transport = FortiOSSSHTransport(make_device(), provider, known_hosts_data=b"known")
+
+    (output,) = await transport.execute_semantic(
+        (FortiOSSemanticRequest(FortiOSSemanticCommand.IPSEC_TUNNELS),)
+    )
+
+    assert "list all ipsec tunnel in vd 0" in output
+    assert ike_canary not in output
+    assert any("diagnose vpn tunnel list" in write for write in connection.process.stdin.writes)
+    with pytest.raises(ValueError):
+        FortiOSSemanticCommand("show user supplied command")
 
 
 @pytest.mark.asyncio

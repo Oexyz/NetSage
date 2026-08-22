@@ -34,6 +34,14 @@ bounded to the live operation.
 | Active routes | `get router info routing-table all` | Read-only |
 | System health | `get system performance status` | Read-only |
 | IPv4 firewall policies | `show firewall policy` | Read-only |
+| HA status | `get system ha status` | Read-only |
+| SD-WAN members | `diagnose sys sdwan member` | Reviewed read-only semantic request |
+| SD-WAN health checks | Trusted Catalog ID | Read-only semantic promotion |
+| IPsec Phase 1 | Trusted Catalog ID | Read-only semantic promotion |
+| IPsec tunnels / Phase 2 | Trusted Catalog ID | Read-only semantic promotion |
+| BGP summary | `get router info bgp summary` | Read-only |
+| OSPF process | `get router info ospf status` | Read-only |
+| OSPF neighbors | `get router info ospf neighbor all` | Read-only |
 | Ping | `execute ping <validated-IP>` | Diagnostic |
 | Traceroute | `execute traceroute <validated-IP>` | Diagnostic |
 
@@ -43,10 +51,32 @@ Observe policy. No user or AI string can become a FortiOS command.
 The complete local FortiOS 7.2.13 CLI reference is now transformed into a
 generated knowledge catalog with command class, capability, typed argument,
 context, execution/parser support, and source line/page metadata. The catalog is
-not a transport allowlist and is never exposed as an arbitrary CLI tool. Only the
-fixed commands above remain executable. Adding another executable operation still
-requires a semantic capability, explicit policy, reviewed typed rendering,
+not a transport allowlist and is never exposed as an arbitrary CLI tool. The
+fixed operations and three source-traceable semantic Catalog-ID promotions above
+are executable only through typed Driver methods. The semantic enum has no
+arguments and cannot carry user or AI text. Adding another executable operation
+still requires a semantic capability, explicit policy, reviewed typed rendering,
 redaction, normalized output or a documented sanitized-text boundary, and tests.
+
+### Semantic observability
+
+The Driver implements twelve additional vendor-neutral operations across HA,
+SD-WAN, IPsec, BGP, OSPF, and route summary. Five comprehensive status operations
+are AI-promoted; seven focused views remain Broker-only. Comprehensive results
+carry explicit collection limits and `truncated`; focused views reject a
+truncated source rather than silently discard that state.
+
+The fixed request set intentionally uses `get router info bgp summary` and OSPF
+status/neighbor commands rather than the catalogued `diagnose ... show` entries:
+the local FortiOS source states that those catalog entries report debugging
+status, not routing-neighbor state. See the
+[semantic coverage matrix](fortios-semantic-coverage.md).
+
+The HA/SD-WAN/IPsec/BGP/OSPF Capability flags mean that this Driver implements a
+safe typed query for the domain. They do not claim that the feature is configured
+on a particular appliance. Each status model carries `enabled=true`,
+`enabled=false`, or an honest unknown/missing-Evidence outcome based on the
+actual response.
 
 Inspect the local catalog without connecting to a device:
 
@@ -89,12 +119,21 @@ Parsers accept prompt and command-echo variants, current-VDOM wrappers, omitted
 default settings, nested configuration blocks, and common FortiOS appliance model
 names. System-health parsing supports both the `Memory states: ... used` format
 and the FortiOS 7.2-style total/used/free memory format. The implemented driver is
-Beta and deliberately bounded to a FortiOS 7.x-style surface; unsupported output fails
-with a safe parser error instead of fabricated empty data.
+Beta and deliberately bounded to a FortiOS 7.x-style surface; unsupported output
+fails with a safe parser error instead of fabricated empty data.
 
-The complete passive snapshot has been verified against an authorized FortiOS
-7.2.13 device. No device hostname, address, serial number, credential, or raw
-capture from that verification is stored in the repository.
+Domain parsers live under `fortios/semantic/` rather than extending the existing
+single parser module indefinitely. They tolerate reordered and extra fields but
+reject empty, unrecognized, rejected, or ambiguous output. Explicit disabled or
+not-running feature state is modeled; ambiguous empty BGP output remains missing
+Evidence. IPsec `key`, `SK_*`, and per-SA key material is redacted before parsing
+and is never selected into a normalized model.
+
+The complete passive snapshot and representative HA, disabled SD-WAN, IPsec, and
+OSPF semantic paths have been verified against an authorized FortiOS 7.2.13
+device. BGP returned ambiguous empty output and correctly became missing
+Evidence. No device hostname, address, serial number, credential, peer, interface,
+or raw capture from that verification is stored in the repository.
 
 ### Data flow
 

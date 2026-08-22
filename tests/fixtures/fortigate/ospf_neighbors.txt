@@ -1,0 +1,4 @@
+OSPF process 0:
+Neighbor ID     Pri State           Dead Time Address         Interface
+198.51.100.10     1 Full/DR         00:00:35  192.0.2.20      transit-a
+203.0.113.10      1 Init/DROther    00:00:20  192.0.2.21      transit-b

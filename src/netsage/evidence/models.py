@@ -10,16 +10,35 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from netsage.models import (
     VLAN,
     ArpEntry,
+    BGPNeighbor,
+    BGPStatus,
     Capability,
     DataTrust,
     DeviceFacts,
     FirewallPolicy,
+    HAMember,
+    HAStatus,
     Interface,
+    IPsecStatus,
+    IPsecTunnel,
+    OSPFNeighbor,
+    OSPFStatus,
     PingResult,
     Platform,
     Route,
+    RouteSummary,
+    SDWANHealthCheck,
+    SDWANMember,
+    SDWANStatus,
     SystemHealth,
     TracerouteResult,
+)
+from netsage.models.observability import (
+    MAX_HA_MEMBERS,
+    MAX_IPSEC_TUNNELS,
+    MAX_ROUTING_NEIGHBORS,
+    MAX_SDWAN_HEALTH_CHECKS,
+    MAX_SDWAN_MEMBERS,
 )
 
 
@@ -105,6 +124,90 @@ class TracerouteEvidencePayload(BaseModel):
     result: TracerouteResult
 
 
+class HAStatusEvidencePayload(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["ha_status"] = "ha_status"
+    status: HAStatus
+
+
+class HAMembersEvidencePayload(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["ha_members"] = "ha_members"
+    members: tuple[HAMember, ...] = Field(max_length=MAX_HA_MEMBERS)
+
+
+class SDWANStatusEvidencePayload(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["sdwan_status"] = "sdwan_status"
+    status: SDWANStatus
+
+
+class SDWANMembersEvidencePayload(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["sdwan_members"] = "sdwan_members"
+    members: tuple[SDWANMember, ...] = Field(max_length=MAX_SDWAN_MEMBERS)
+
+
+class SDWANHealthChecksEvidencePayload(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["sdwan_health_checks"] = "sdwan_health_checks"
+    health_checks: tuple[SDWANHealthCheck, ...] = Field(max_length=MAX_SDWAN_HEALTH_CHECKS)
+
+
+class IPsecStatusEvidencePayload(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["ipsec_status"] = "ipsec_status"
+    status: IPsecStatus
+
+
+class IPsecTunnelsEvidencePayload(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["ipsec_tunnels"] = "ipsec_tunnels"
+    tunnels: tuple[IPsecTunnel, ...] = Field(max_length=MAX_IPSEC_TUNNELS)
+
+
+class BGPStatusEvidencePayload(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["bgp_status"] = "bgp_status"
+    status: BGPStatus
+
+
+class BGPNeighborsEvidencePayload(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["bgp_neighbors"] = "bgp_neighbors"
+    neighbors: tuple[BGPNeighbor, ...] = Field(max_length=MAX_ROUTING_NEIGHBORS)
+
+
+class OSPFStatusEvidencePayload(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["ospf_status"] = "ospf_status"
+    status: OSPFStatus
+
+
+class OSPFNeighborsEvidencePayload(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["ospf_neighbors"] = "ospf_neighbors"
+    neighbors: tuple[OSPFNeighbor, ...] = Field(max_length=MAX_ROUTING_NEIGHBORS)
+
+
+class RouteSummaryEvidencePayload(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["route_summary"] = "route_summary"
+    summary: RouteSummary
+
+
 EvidencePayload = Annotated[
     DeviceFactsEvidencePayload
     | InterfacesEvidencePayload
@@ -114,7 +217,19 @@ EvidencePayload = Annotated[
     | SystemHealthEvidencePayload
     | FirewallPoliciesEvidencePayload
     | PingEvidencePayload
-    | TracerouteEvidencePayload,
+    | TracerouteEvidencePayload
+    | HAStatusEvidencePayload
+    | HAMembersEvidencePayload
+    | SDWANStatusEvidencePayload
+    | SDWANMembersEvidencePayload
+    | SDWANHealthChecksEvidencePayload
+    | IPsecStatusEvidencePayload
+    | IPsecTunnelsEvidencePayload
+    | BGPStatusEvidencePayload
+    | BGPNeighborsEvidencePayload
+    | OSPFStatusEvidencePayload
+    | OSPFNeighborsEvidencePayload
+    | RouteSummaryEvidencePayload,
     Field(discriminator="kind"),
 ]
 
@@ -136,7 +251,22 @@ def _payload_capability(payload: EvidencePayload) -> Capability:
         return Capability.FIREWALL
     if isinstance(payload, PingEvidencePayload):
         return Capability.PING
-    return Capability.TRACEROUTE
+    if isinstance(payload, TracerouteEvidencePayload):
+        return Capability.TRACEROUTE
+    if isinstance(payload, HAStatusEvidencePayload | HAMembersEvidencePayload):
+        return Capability.HA
+    if isinstance(
+        payload,
+        SDWANStatusEvidencePayload | SDWANMembersEvidencePayload | SDWANHealthChecksEvidencePayload,
+    ):
+        return Capability.SDWAN
+    if isinstance(payload, IPsecStatusEvidencePayload | IPsecTunnelsEvidencePayload):
+        return Capability.IPSEC
+    if isinstance(payload, BGPStatusEvidencePayload | BGPNeighborsEvidencePayload):
+        return Capability.BGP
+    if isinstance(payload, OSPFStatusEvidencePayload | OSPFNeighborsEvidencePayload):
+        return Capability.OSPF
+    return Capability.ROUTES
 
 
 def _payload_device_ids(payload: EvidencePayload) -> frozenset[str]:
@@ -156,7 +286,31 @@ def _payload_device_ids(payload: EvidencePayload) -> frozenset[str]:
         return frozenset(item.device_id for item in payload.policies)
     if isinstance(payload, PingEvidencePayload):
         return frozenset({payload.result.device_id})
-    return frozenset({payload.result.device_id})
+    if isinstance(payload, TracerouteEvidencePayload):
+        return frozenset({payload.result.device_id})
+    if isinstance(payload, HAStatusEvidencePayload):
+        return frozenset({payload.status.device_id})
+    if isinstance(payload, HAMembersEvidencePayload):
+        return frozenset(item.device_id for item in payload.members)
+    if isinstance(payload, SDWANStatusEvidencePayload):
+        return frozenset({payload.status.device_id})
+    if isinstance(payload, SDWANMembersEvidencePayload):
+        return frozenset(item.device_id for item in payload.members)
+    if isinstance(payload, SDWANHealthChecksEvidencePayload):
+        return frozenset(item.device_id for item in payload.health_checks)
+    if isinstance(payload, IPsecStatusEvidencePayload):
+        return frozenset({payload.status.device_id})
+    if isinstance(payload, IPsecTunnelsEvidencePayload):
+        return frozenset(item.device_id for item in payload.tunnels)
+    if isinstance(payload, BGPStatusEvidencePayload):
+        return frozenset({payload.status.device_id})
+    if isinstance(payload, BGPNeighborsEvidencePayload):
+        return frozenset(item.device_id for item in payload.neighbors)
+    if isinstance(payload, OSPFStatusEvidencePayload):
+        return frozenset({payload.status.device_id})
+    if isinstance(payload, OSPFNeighborsEvidencePayload):
+        return frozenset(item.device_id for item in payload.neighbors)
+    return frozenset({payload.summary.device_id})
 
 
 class EvidenceEnvelope(BaseModel):

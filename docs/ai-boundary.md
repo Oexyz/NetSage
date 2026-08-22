@@ -63,6 +63,12 @@ Tool names in model output are data for AgentRuntime, not OpenAI function tools.
 Raw provider responses, SDK errors, hidden reasoning, request transcripts, and
 provider authentication are not persisted.
 
+The FortiOS semantic expansion promotes only five comprehensive tools to this
+catalog: HA, SD-WAN, IPsec, BGP, and OSPF status. Their results are typed,
+bounded Evidence with explicit truncation and untrusted-data marking. Seven
+focused semantic views remain Broker-only. No Catalog Command ID, rendered CLI,
+or 515-command expert-execution definition becomes AI-visible.
+
 Native Codex OAuth authentication is a trusted transport concern. Its keyring
 store and refresh client are not provider input and are not reachable as model
 tools. The resulting bearer is restricted to the Codex compatibility backend;

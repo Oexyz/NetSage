@@ -3,4 +3,6 @@ CPU0 states: 2% user 3% system 0% nice 94% idle 0% iowait 0% irq 1% softirq
 Memory states: 41% used
 Average network usage: 120 / 80 kbps in 1 minute
 Average sessions: 20 sessions in 1 minute
+Session limit: 100000
+Memory conserve mode: off
 Uptime: 12 days, 3 hours, 4 minutes

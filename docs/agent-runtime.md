@@ -28,6 +28,12 @@ step limit, per-step tool limit, or total tool limit. Conservative defaults are:
 Exact repeated tool name plus arguments without new Evidence terminates the run.
 Tool-call UUIDs must also be unique.
 
+FortiOS HA, SD-WAN, IPsec, BGP, and OSPF status can enter the loop only when the
+provider requests the corresponding Broker-owned semantic tool. A normal health
+baseline does not pre-collect all domains. Each collection is bounded; truncated
+status remains explicit, and focused views which cannot preserve that state fail
+closed.
+
 ## Final validation
 
 `AIFinalResponse` separates summary, qualitative DiagnosisStrength, Evidence UUIDs,
@@ -49,3 +55,7 @@ Beta, while native Codex OAuth is Experimental. `netsage ask` follows the visibl
 provider selection policy; `netsage investigate` remains deterministic. Provider
 raw responses, hidden reasoning, API keys, tokens, and request transcripts are
 not persisted.
+
+Automated semantic-tool loops use `FakeAIProvider`. The milestone's native OAuth
+live attempt returned a typed invalid-output provider failure before requesting a
+tool; no semantic Evidence or raw device data was returned to that failed turn.

@@ -5,6 +5,13 @@
         ipv6: ::/0
         status: up
         speed: 1000Mbps (Duplex: full)
+        rx_packets: 1000
+        tx_packets: 900
+        rx_errors: 2
+        tx_errors: 1
+        rx_drops: 3
+        tx_drops: 4
+        collisions: 0
         FEC: none
     ==[port2]
         mode: static

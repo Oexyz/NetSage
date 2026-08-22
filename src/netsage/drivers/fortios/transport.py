@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 import asyncssh
 
 from netsage.credentials import CredentialKind, CredentialProvider
-from netsage.drivers.fortios.commands import FortiOSRequest
+from netsage.drivers.fortios.commands import FortiOSRequest, FortiOSSemanticRequest
 from netsage.models import DeviceRef, Platform
 from netsage.security import SecretRedactor
 
@@ -116,6 +116,19 @@ class FortiOSSSHTransport:
         if not requests:
             return ()
         rendered = tuple(request.render() for request in requests)
+        return await self._execute_rendered(rendered)
+
+    async def execute_semantic(
+        self, requests: Sequence[FortiOSRequest | FortiOSSemanticRequest]
+    ) -> tuple[str, ...]:
+        """Execute only the fixed source-traceable semantic promotion enum."""
+
+        if not requests:
+            return ()
+        try:
+            rendered = tuple(request.render() for request in requests)
+        except (KeyError, RuntimeError, ValueError) as error:
+            raise FortiOSCommandError("FortiOS semantic request is invalid") from error
         return await self._execute_rendered(rendered)
 
     async def execute_catalog(self, request: FortiOSCatalogInvocation) -> str:

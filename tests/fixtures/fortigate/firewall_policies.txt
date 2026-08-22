@@ -9,6 +9,7 @@ config firewall policy
         set schedule "always"
         set service "DNS" "HTTPS"
         set nat enable
+        set logtraffic all
         set comments "Normal synthetic policy"
     next
     edit 2

@@ -1,0 +1,18 @@
+list all ipsec tunnel in vd 0
+------------------------------------------------------
+name=synthetic-vpn-a ver=2 serial=2 192.0.2.10:0->198.51.100.20:0
+bound_if=3 lgwy=static/1 tun=intf/0 mode=auto/1 encap=none/8
+stat: rxp=50 txp=60 rxb=5000 txb=6000
+natt: mode=none draft=0 interval=0 remote_port=0
+proxyid=synthetic-phase2-a proto=0 sa=1 ref=2
+src: 0:192.0.2.0/255.255.255.0:0
+dst: 0:198.51.100.0/255.255.255.0:0
+SA: ref=3 soft=0 mtu=1438 expire=1800/0B
+
+name=synthetic-vpn-b ver=1 serial=3 192.0.2.11:0->203.0.113.20:0
+bound_if=4 lgwy=static/1 tun=intf/0 mode=auto/1 encap=none/8
+stat: rxp=0 txp=0 rxb=0 txb=0
+natt: mode=none draft=0 interval=0 remote_port=0
+proxyid=synthetic-phase2-b proto=0 sa=0 ref=1
+src: 0:192.0.2.0/255.255.255.0:0
+dst: 0:203.0.113.0/255.255.255.0:0

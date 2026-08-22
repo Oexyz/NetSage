@@ -22,22 +22,39 @@ _SENSITIVE_KEYS = {
 }
 
 _TEXT_PATTERNS = (
-    re.compile(
-        r"-----BEGIN(?: [A-Z0-9]+)? PRIVATE KEY-----.*?"
-        r"-----END(?: [A-Z0-9]+)? PRIVATE KEY-----",
-        re.DOTALL,
+    (
+        re.compile(
+            r"-----BEGIN(?: [A-Z0-9]+)? PRIVATE KEY-----.*?"
+            r"-----END(?: [A-Z0-9]+)? PRIVATE KEY-----",
+            re.DOTALL,
+        ),
+        REDACTED,
     ),
-    re.compile(r"(?im)(authorization\s*:\s*(?:bearer|basic)\s+)\S+"),
-    re.compile(
-        r"(?im)\b(snmp-server\s+community|tacacs(?:-server)?\s+(?:key|secret)|"
-        r"radius(?:-server)?\s+(?:key|secret)|enable\s+secret)\s+\S+"
+    (re.compile(r"(?im)(authorization\s*:\s*(?:bearer|basic)\s+)\S+"), rf"\1{REDACTED}"),
+    (
+        re.compile(
+            r"(?im)\b(snmp-server\s+community|tacacs(?:-server)?\s+(?:key|secret)|"
+            r"radius(?:-server)?\s+(?:key|secret)|enable\s+secret)\s+\S+"
+        ),
+        rf"\1 {REDACTED}",
     ),
-    re.compile(
-        r"(?im)\b(password|api[_-]?key|access[_-]?token|auth[_-]?token|secret)"
-        r"(\s*[:=]\s*)\S+"
+    (
+        re.compile(
+            r"(?im)\b(password|api[_-]?key|access[_-]?token|auth[_-]?token|secret)"
+            r"(\s*[:=]\s*)\S+"
+        ),
+        rf"\1\2{REDACTED}",
     ),
-    re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b"),
-    re.compile(r"\bsk-[A-Za-z0-9_-]{12,}\b"),
+    (
+        re.compile(r"(?im)^(\s*(?:key|SK_ei|SK_er|SK_ai|SK_ar)\s*:\s*)\S+.*$"),
+        rf"\1{REDACTED}",
+    ),
+    (
+        re.compile(r"(?im)(\bkey=\d+\s+)[0-9a-f][0-9a-f-]{7,}"),
+        rf"\1{REDACTED}",
+    ),
+    (re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b"), REDACTED),
+    (re.compile(r"\bsk-[A-Za-z0-9_-]{12,}\b"), REDACTED),
 )
 
 
@@ -55,15 +72,8 @@ class SecretRedactor:
 
     def redact_text(self, value: str) -> str:
         redacted = value
-        for index, pattern in enumerate(_TEXT_PATTERNS):
-            if index == 1:
-                redacted = pattern.sub(rf"\1{REDACTED}", redacted)
-            elif index == 2:
-                redacted = pattern.sub(rf"\1 {REDACTED}", redacted)
-            elif index == 3:
-                redacted = pattern.sub(rf"\1\2{REDACTED}", redacted)
-            else:
-                redacted = pattern.sub(REDACTED, redacted)
+        for pattern, replacement in _TEXT_PATTERNS:
+            redacted = pattern.sub(replacement, redacted)
         for secret in self._known_secrets:
             redacted = redacted.replace(secret, REDACTED)
         return redacted

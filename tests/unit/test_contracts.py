@@ -23,14 +23,26 @@ from netsage.drivers import NetworkDriver
 from netsage.models import (
     VLAN,
     ArpEntry,
+    BGPNeighbor,
+    BGPStatus,
     Capability,
     DeviceFacts,
     FirewallPolicy,
+    HAMember,
+    HAStatus,
     Interface,
+    IPsecStatus,
+    IPsecTunnel,
     LldpNeighbor,
     MacEntry,
+    OSPFNeighbor,
+    OSPFStatus,
     PingResult,
     Route,
+    RouteSummary,
+    SDWANHealthCheck,
+    SDWANMember,
+    SDWANStatus,
     SystemHealth,
     TracerouteResult,
 )
@@ -67,6 +79,48 @@ class ExampleDriver(NetworkDriver):
 
     async def get_firewall_policies(self) -> Sequence[FirewallPolicy]:
         return []
+
+    async def get_ha_status(self) -> HAStatus:
+        return HAStatus(device_id="example", enabled=False)
+
+    async def get_ha_members(self) -> Sequence[HAMember]:
+        return []
+
+    async def get_sdwan_status(self) -> SDWANStatus:
+        return SDWANStatus(device_id="example", enabled=False)
+
+    async def get_sdwan_members(self) -> Sequence[SDWANMember]:
+        return []
+
+    async def get_sdwan_health_checks(self) -> Sequence[SDWANHealthCheck]:
+        return []
+
+    async def get_ipsec_status(self) -> IPsecStatus:
+        return IPsecStatus(device_id="example", enabled=False)
+
+    async def get_ipsec_tunnels(self) -> Sequence[IPsecTunnel]:
+        return []
+
+    async def get_bgp_status(self) -> BGPStatus:
+        return BGPStatus(device_id="example", enabled=False)
+
+    async def get_bgp_neighbors(self) -> Sequence[BGPNeighbor]:
+        return []
+
+    async def get_ospf_status(self) -> OSPFStatus:
+        return OSPFStatus(device_id="example", enabled=False)
+
+    async def get_ospf_neighbors(self) -> Sequence[OSPFNeighbor]:
+        return []
+
+    async def get_route_summary(self) -> RouteSummary:
+        return RouteSummary(
+            device_id="example",
+            total_routes=0,
+            active_routes=0,
+            default_routes=0,
+            active_default_routes=0,
+        )
 
     async def ping(self, destination: IPv4Address | IPv6Address) -> PingResult:
         return PingResult(

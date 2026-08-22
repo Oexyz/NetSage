@@ -19,6 +19,7 @@ from netsage.drivers.fortios import (
 from netsage.evidence import EvidenceCollector, EvidenceFactory, InMemoryEvidenceStore
 from netsage.history import HistoryError, SQLiteAuditSink, SQLiteInvestigationStore
 from netsage.investigations import (
+    FortiOSInvestigationFocus,
     FortiOSInvestigator,
     InvestigationReport,
 )
@@ -198,10 +199,20 @@ class FortiOSDeviceService:
             pin=pin,
         )
 
-    async def investigate(self, name: str, *, persist: bool = True) -> InvestigationReport:
+    async def investigate(
+        self,
+        name: str,
+        *,
+        persist: bool = True,
+        focus: FortiOSInvestigationFocus = FortiOSInvestigationFocus.HEALTH,
+    ) -> InvestigationReport:
         inventory = self._state.load_inventory()
         device = inventory.get_device(name)
         runtime = await self._runtime.prepare(device)
+        device = device.model_copy(update={"capabilities": runtime.driver.capabilities})
+        inventory = inventory.model_copy(
+            update={"devices": {**inventory.devices, device.name: device}}
+        )
         audit_sink = (
             SQLiteAuditSink(self._state.history, redactor=runtime.redactor)
             if persist
@@ -226,7 +237,7 @@ class FortiOSDeviceService:
         report = await FortiOSInvestigator(
             collector=collector,
             redactor=runtime.redactor,
-        ).investigate_health(device.name)
+        ).investigate(device.name, focus)
         if persist:
             evidence = store.list_for_investigation(report.investigation.investigation_id)
             try:

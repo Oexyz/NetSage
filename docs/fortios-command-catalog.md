@@ -121,3 +121,9 @@ netsage fortios commands coverage
 The complete catalog is not sent to AI context. AgentRuntime continues to see
 only the small Broker-filtered structured tool catalog for the selected device
 and investigation scope.
+
+The later semantic-observability layer does not change these totals. Three
+argument-free READ_ONLY definitions are referenced by a separate fixed semantic
+enum and parsed into typed SD-WAN/IPsec models. This is not general Catalog
+promotion: users and AI cannot select those IDs, and the expert-execution count
+remains 515. See [FortiOS semantic coverage](fortios-semantic-coverage.md).

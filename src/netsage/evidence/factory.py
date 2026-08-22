@@ -8,14 +8,26 @@ from pydantic import BaseModel, JsonValue, TypeAdapter
 
 from netsage.evidence.models import (
     ArpEvidencePayload,
+    BGPNeighborsEvidencePayload,
+    BGPStatusEvidencePayload,
     DeviceFactsEvidencePayload,
     EvidenceEnvelope,
     EvidencePayload,
     EvidenceProvenance,
     FirewallPoliciesEvidencePayload,
+    HAMembersEvidencePayload,
+    HAStatusEvidencePayload,
     InterfacesEvidencePayload,
+    IPsecStatusEvidencePayload,
+    IPsecTunnelsEvidencePayload,
+    OSPFNeighborsEvidencePayload,
+    OSPFStatusEvidencePayload,
     PingEvidencePayload,
     RoutesEvidencePayload,
+    RouteSummaryEvidencePayload,
+    SDWANHealthChecksEvidencePayload,
+    SDWANMembersEvidencePayload,
+    SDWANStatusEvidencePayload,
     SystemHealthEvidencePayload,
     TracerouteEvidencePayload,
     VlansEvidencePayload,
@@ -23,15 +35,27 @@ from netsage.evidence.models import (
 from netsage.models import (
     VLAN,
     ArpEntry,
+    BGPNeighbor,
+    BGPStatus,
     Capability,
     CommandResult,
     DataTrust,
     DeviceFacts,
     FirewallPolicy,
+    HAMember,
+    HAStatus,
     Interface,
+    IPsecStatus,
+    IPsecTunnel,
+    OSPFNeighbor,
+    OSPFStatus,
     PingResult,
     Platform,
     Route,
+    RouteSummary,
+    SDWANHealthCheck,
+    SDWANMember,
+    SDWANStatus,
     SystemHealth,
     TracerouteResult,
 )
@@ -48,6 +72,18 @@ _OPERATION_CAPABILITIES = {
     "get_firewall_policies": Capability.FIREWALL,
     "ping": Capability.PING,
     "traceroute": Capability.TRACEROUTE,
+    "get_ha_status": Capability.HA,
+    "get_ha_members": Capability.HA,
+    "get_sdwan_status": Capability.SDWAN,
+    "get_sdwan_members": Capability.SDWAN,
+    "get_sdwan_health_checks": Capability.SDWAN,
+    "get_ipsec_status": Capability.IPSEC,
+    "get_ipsec_tunnels": Capability.IPSEC,
+    "get_bgp_status": Capability.BGP,
+    "get_bgp_neighbors": Capability.BGP,
+    "get_ospf_status": Capability.OSPF,
+    "get_ospf_neighbors": Capability.OSPF,
+    "get_route_summary": Capability.ROUTES,
 }
 
 
@@ -150,4 +186,28 @@ class EvidenceFactory:
             return PingEvidencePayload(result=_one(output, PingResult))
         if operation == "traceroute":
             return TracerouteEvidencePayload(result=_one(output, TracerouteResult))
+        if operation == "get_ha_status":
+            return HAStatusEvidencePayload(status=_one(output, HAStatus))
+        if operation == "get_ha_members":
+            return HAMembersEvidencePayload(members=_many(output, HAMember))
+        if operation == "get_sdwan_status":
+            return SDWANStatusEvidencePayload(status=_one(output, SDWANStatus))
+        if operation == "get_sdwan_members":
+            return SDWANMembersEvidencePayload(members=_many(output, SDWANMember))
+        if operation == "get_sdwan_health_checks":
+            return SDWANHealthChecksEvidencePayload(health_checks=_many(output, SDWANHealthCheck))
+        if operation == "get_ipsec_status":
+            return IPsecStatusEvidencePayload(status=_one(output, IPsecStatus))
+        if operation == "get_ipsec_tunnels":
+            return IPsecTunnelsEvidencePayload(tunnels=_many(output, IPsecTunnel))
+        if operation == "get_bgp_status":
+            return BGPStatusEvidencePayload(status=_one(output, BGPStatus))
+        if operation == "get_bgp_neighbors":
+            return BGPNeighborsEvidencePayload(neighbors=_many(output, BGPNeighbor))
+        if operation == "get_ospf_status":
+            return OSPFStatusEvidencePayload(status=_one(output, OSPFStatus))
+        if operation == "get_ospf_neighbors":
+            return OSPFNeighborsEvidencePayload(neighbors=_many(output, OSPFNeighbor))
+        if operation == "get_route_summary":
+            return RouteSummaryEvidencePayload(summary=_one(output, RouteSummary))
         raise UnsupportedEvidenceOperationError("operation has no evidence payload type")

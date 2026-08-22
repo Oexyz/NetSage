@@ -25,7 +25,7 @@ from netsage.history import (
     SQLiteInvestigationStore,
 )
 from netsage.inventory import DuplicateDeviceError, UnknownDeviceError
-from netsage.investigations import render_investigation_report
+from netsage.investigations import FortiOSInvestigationFocus, render_investigation_report
 from netsage.onboarding import (
     DeviceOnboardingError,
     DeviceTestResult,
@@ -358,11 +358,22 @@ def device_trust_reset(name: str) -> None:
     console.print("SSH host-key trust updated.")
 
 
-def investigate_device(name: str, *, ephemeral: bool = False) -> None:
+def investigate_device(
+    name: str,
+    *,
+    ephemeral: bool = False,
+    focus: FortiOSInvestigationFocus = FortiOSInvestigationFocus.HEALTH,
+) -> None:
     """Run the existing deterministic investigation for a stored Device ID."""
 
     try:
-        report = asyncio.run(_device_service(_state()).investigate(name, persist=not ephemeral))
+        report = asyncio.run(
+            _device_service(_state()).investigate(
+                name,
+                persist=not ephemeral,
+                focus=focus,
+            )
+        )
     except InvestigationHistoryWriteError as error:
         console.print(render_investigation_report(error.report))
         raise _fail(str(error), error) from error

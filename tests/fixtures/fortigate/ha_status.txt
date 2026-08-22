@@ -1,0 +1,16 @@
+HA Health Status: OK
+Model: FortiGate-Synthetic
+Mode: HA A-P
+Group Name: synthetic-cluster
+Group ID: 7
+Cluster Uptime: 12 days 03:04:05
+Configuration Status:
+    member-a(updated 2 seconds ago): in-sync
+    member-b(updated 3 seconds ago): in-sync
+System Usage stats:
+    member-a(updated 2 seconds ago):
+        sessions=120, average-cpu-user/nice/system/idle=2%/0%/3%/95%, memory=42%
+    member-b(updated 3 seconds ago):
+        sessions=25, average-cpu-user/nice/system/idle=1%/0%/1%/98%, memory=39%
+Primary     : lab-fortigate-a, member-a, HA cluster index = 0
+Secondary   : forti-gateway, member-b, HA cluster index = 1

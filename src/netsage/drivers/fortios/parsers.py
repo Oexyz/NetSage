@@ -16,7 +16,10 @@ from netsage.models import (
     FirewallPolicy,
     HealthStatus,
     Interface,
+    InterfaceDuplex,
+    InterfaceErrors,
     InterfaceState,
+    InterfaceStatistics,
     PingResult,
     Route,
     SystemHealth,
@@ -103,6 +106,7 @@ def parse_interfaces(
             physical_values.get("status"), default=InterfaceState.UNKNOWN
         )
         speed_mbps = _parse_speed_mbps(physical_values.get("speed", ""))
+        duplex = _parse_duplex(physical_values.get("duplex") or physical_values.get("speed", ""))
         addresses = _interface_addresses(settings.get("ip", ()))
         vlan_values = settings.get("vlanid", ())
         vlans = (int(vlan_values[0]),) if vlan_values else ()
@@ -115,9 +119,14 @@ def parse_interfaces(
                 operational_state=operational_state,
                 description=_first(settings, "alias") or _first(settings, "description"),
                 speed_mbps=speed_mbps,
+                duplex=duplex,
                 mtu=int(mtu_values[0]) if mtu_values else None,
+                role=_first(settings, "role"),
+                parent_interface=_first(settings, "interface"),
                 addresses=addresses,
                 vlans=vlans,
+                errors=_interface_errors(physical_values),
+                statistics=_interface_statistics(physical_values),
             )
         )
     if not interfaces:
@@ -227,6 +236,7 @@ def parse_routes(device_id: str, output: str) -> tuple[Route, ...]:
                 distance=distance,
                 metric=metric,
                 vrf=vrf,
+                active=True,
                 selected=selected,
             )
         )
@@ -259,12 +269,27 @@ def parse_system_health(device_id: str, output: str) -> SystemHealth:
         status = HealthStatus.DEGRADED
     uptime_match = re.search(r"(?m)^Uptime:\s*(.+)$", output)
     uptime_text = uptime_match.group(1).strip() if uptime_match else None
+    sessions_match = re.search(
+        r"(?im)^(?:Average|Current) sessions:\s*([\d,]+)(?:\s+sessions)?", output
+    )
+    session_limit_match = re.search(r"(?im)^Session limit:\s*([\d,]+)", output)
+    conserve_match = re.search(
+        r"(?im)^Memory conserve mode:\s*(on|off|enable|disable|active|inactive)", output
+    )
+    conserve_mode = None
+    if conserve_match:
+        conserve_mode = conserve_match.group(1).casefold() in {"on", "enable", "active"}
     return SystemHealth(
         device_id=device_id,
         status=status,
         cpu_percent=cpu_percent,
         memory_percent=memory_percent,
         uptime_seconds=_parse_uptime(uptime_text) if uptime_text else None,
+        session_count=(int(sessions_match.group(1).replace(",", "")) if sessions_match else None),
+        session_limit=(
+            int(session_limit_match.group(1).replace(",", "")) if session_limit_match else None
+        ),
+        conserve_mode=conserve_mode,
         observations=(f"uptime: {uptime_text}",) if uptime_text else (),
     )
 
@@ -295,6 +320,7 @@ def parse_firewall_policies(device_id: str, output: str) -> tuple[FirewallPolicy
                 action=action,
                 enabled=_first(settings, "status") != "disable",
                 nat_enabled=_first(settings, "nat") == "enable",
+                log_traffic=_first(settings, "logtraffic"),
                 schedule=_first(settings, "schedule"),
                 comments=_first(settings, "comments"),
             )
@@ -533,7 +559,7 @@ def _parse_physical_interfaces(output: str) -> dict[str, dict[str, str]]:
             if not separator:
                 key, separator, value = normalized_line.partition("=")
             if separator:
-                current[key.strip()] = value.strip()
+                current[key.strip().casefold()] = value.strip()
     return interfaces
 
 
@@ -565,6 +591,48 @@ def _parse_speed_mbps(raw: str | None) -> int | None:
     if unit.startswith("g"):
         return speed * 1000
     return speed
+
+
+def _parse_duplex(raw: str | None) -> InterfaceDuplex:
+    if raw is None:
+        return InterfaceDuplex.UNKNOWN
+    normalized = raw.casefold()
+    if "full" in normalized:
+        return InterfaceDuplex.FULL
+    if "half" in normalized:
+        return InterfaceDuplex.HALF
+    return InterfaceDuplex.UNKNOWN
+
+
+def _counter(values: dict[str, str], *keys: str) -> int | None:
+    for key in keys:
+        raw = values.get(key)
+        if raw is None:
+            continue
+        match = re.search(r"[\d,]+", raw)
+        if match:
+            return int(match.group().replace(",", ""))
+    return None
+
+
+def _interface_errors(values: dict[str, str]) -> InterfaceErrors:
+    return InterfaceErrors(
+        crc=_counter(values, "crc", "crc_errors", "rx_crc_errors", "rx crc errors"),
+        rx=_counter(values, "rx_errors", "rx errors", "input errors"),
+        tx=_counter(values, "tx_errors", "tx errors", "output errors"),
+    )
+
+
+def _interface_statistics(values: dict[str, str]) -> InterfaceStatistics:
+    return InterfaceStatistics(
+        rx_packets=_counter(values, "rx_packets", "rx packets"),
+        tx_packets=_counter(values, "tx_packets", "tx packets"),
+        rx_bytes=_counter(values, "rx_bytes", "rx bytes"),
+        tx_bytes=_counter(values, "tx_bytes", "tx bytes"),
+        rx_drops=_counter(values, "rx_drops", "rx dropped", "rx drops"),
+        tx_drops=_counter(values, "tx_drops", "tx dropped", "tx drops"),
+        collisions=_counter(values, "collisions"),
+    )
 
 
 def _normalize_interface_state(value: str | None, *, default: InterfaceState) -> InterfaceState:

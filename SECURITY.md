@@ -37,6 +37,18 @@ and discarded after terminal/JSON delivery. Only stable command ID, safe named
 arguments, decision, result category, and duration enter Audit; output never
 enters Evidence, History, logs, or AI context.
 
+The semantic FortiOS layer is a separate reviewed surface. Twelve typed
+operations cover HA, SD-WAN, IPsec, BGP, OSPF, and route summary; five
+comprehensive status operations are AI-visible. Three source-traceable commands
+use fixed Catalog IDs behind an argument-free enum, while the remaining commands
+use the closed Driver request enum. No caller can supply a rendered command or
+Catalog ID. The 515 expert commands remain AI-invisible and are not Evidence.
+
+Semantic collections have hard item limits and explicit truncation. Focused
+views fail when they cannot preserve truncation state. Feature/model/version
+differences become bounded collection failures, and ambiguous empty output is not
+converted into a fabricated disabled or healthy state.
+
 The interactive `netsage` prompt dispatches only registered commands through the
 same Typer tree as one-shot CLI calls. Unknown input is never forwarded to the
 operating system. NetSage uses no `os.system`, `shell=True`, or generic subprocess
@@ -81,6 +93,12 @@ exception messages. Evidence is not an audit log and contains no credential
 reference or transport secret. In-memory Evidence remains available for
 ephemeral workflows; normal Device-ID investigations can persist the same typed,
 sanitized envelopes locally.
+
+FortiOS IKE and IPsec output receives additional defense-in-depth redaction for
+`key`, `SK_ei`, `SK_er`, `SK_ai`, `SK_ar`, and per-SA `key=<length>` material
+before parsing. Semantic models never select those fields. Tests verify that
+these values do not reach CommandResult, Evidence, History, Audit, AI context,
+terminal output, or JSON serialization.
 
 ## Persistent operational history
 

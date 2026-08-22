@@ -24,14 +24,33 @@ from netsage.investigations import (
     render_investigation_report,
 )
 from netsage.models import (
+    BGPNeighbor,
+    BGPSessionState,
+    BGPStatus,
     Capability,
     DeviceFacts,
     DeviceRef,
+    HAMember,
+    HAStatus,
+    HASynchronizationState,
     HealthStatus,
     Interface,
     InterfaceState,
+    IPsecPhase1,
+    IPsecPhase2,
+    IPsecPhaseState,
+    IPsecStatus,
+    IPsecTunnel,
+    OSPFNeighbor,
+    OSPFNeighborState,
+    OSPFStatus,
     PingResult,
     Route,
+    SDWANHealthCheck,
+    SDWANMember,
+    SDWANPathState,
+    SDWANSLAState,
+    SDWANStatus,
     SystemHealth,
 )
 from netsage.tools import StructuredDriverToolSet
@@ -342,6 +361,326 @@ async def test_administratively_down_and_missing_interfaces_are_distinguished() 
     assert missing.diagnosis is not None
     assert missing.diagnosis.strength is DiagnosisStrength.INSUFFICIENT
     assert missing.diagnosis.missing_evidence
+
+
+@pytest.mark.asyncio
+async def test_ha_healthy_out_of_sync_and_member_missing_findings() -> None:
+    healthy = make_runtime(
+        FakeDriver(
+            ha_status=HAStatus(
+                device_id=DEVICE_ID,
+                enabled=True,
+                health=HealthStatus.HEALTHY,
+                members=(
+                    HAMember(
+                        device_id=DEVICE_ID,
+                        member_id="member-a",
+                        synchronization=HASynchronizationState.IN_SYNC,
+                    ),
+                    HAMember(
+                        device_id=DEVICE_ID,
+                        member_id="member-b",
+                        synchronization=HASynchronizationState.IN_SYNC,
+                    ),
+                ),
+            )
+        )
+    )
+    healthy_report = await healthy.investigator.investigate_ha(DEVICE_ID)
+    assert healthy_report.status is InvestigationStatus.HEALTHY
+    assert healthy_report.findings[0].code == "ha_cluster_healthy"
+
+    degraded = make_runtime(
+        FakeDriver(
+            ha_status=HAStatus(
+                device_id=DEVICE_ID,
+                enabled=True,
+                health=HealthStatus.DEGRADED,
+                members=(
+                    HAMember(
+                        device_id=DEVICE_ID,
+                        member_id="member-a",
+                        synchronization=HASynchronizationState.OUT_OF_SYNC,
+                    ),
+                ),
+            )
+        )
+    )
+    degraded_report = await degraded.investigator.investigate_ha(DEVICE_ID)
+    assert {finding.code for finding in degraded_report.findings} == {
+        "ha_configuration_out_of_sync",
+        "ha_member_count_low",
+    }
+    assert degraded_report.diagnosis is not None
+    assert degraded_report.diagnosis.strength is DiagnosisStrength.CONFIRMED
+
+
+@pytest.mark.asyncio
+async def test_ha_unsupported_is_missing_evidence_not_empty_healthy_state() -> None:
+    runtime = make_runtime(FakeDriver(), capabilities=frozenset({Capability.HA}))
+    report = await runtime.investigator.investigate_ha(DEVICE_ID)
+    assert report.status is InvestigationStatus.INSUFFICIENT
+    assert report.evidence_ids == ()
+    assert report.failures[0].error_type == "UnsupportedCapabilityError"
+
+    truncated_runtime = make_runtime(
+        FakeDriver(
+            ha_status=HAStatus(
+                device_id=DEVICE_ID,
+                enabled=True,
+                truncated=True,
+            )
+        )
+    )
+    truncated = await truncated_runtime.investigator.investigate_ha(DEVICE_ID)
+    assert truncated.status is InvestigationStatus.INSUFFICIENT
+    assert truncated.diagnosis is not None
+    assert truncated.diagnosis.missing_evidence == ("HA member collection was truncated",)
+
+
+@pytest.mark.asyncio
+async def test_sdwan_healthy_member_down_sla_and_alternative_are_deterministic() -> None:
+    runtime = make_runtime(
+        FakeDriver(
+            sdwan_status=SDWANStatus(
+                device_id=DEVICE_ID,
+                enabled=True,
+                members=(SDWANMember(device_id=DEVICE_ID, sequence=1),),
+                health_checks=(
+                    SDWANHealthCheck(
+                        device_id=DEVICE_ID,
+                        name="synthetic",
+                        member_sequence=1,
+                        state=SDWANPathState.ALIVE,
+                    ),
+                    SDWANHealthCheck(
+                        device_id=DEVICE_ID,
+                        name="synthetic",
+                        member_sequence=2,
+                        state=SDWANPathState.DEAD,
+                        sla_state=SDWANSLAState.FAILING,
+                    ),
+                ),
+            )
+        )
+    )
+    report = await runtime.investigator.investigate_sdwan(DEVICE_ID)
+    codes = {finding.code for finding in report.findings}
+    assert codes == {
+        "sdwan_member_down",
+        "sdwan_sla_failing",
+        "sdwan_healthy_alternative",
+    }
+    assert report.diagnosis is None
+
+
+@pytest.mark.asyncio
+async def test_sdwan_no_healthy_path_and_missing_health_are_distinguished() -> None:
+    dead_runtime = make_runtime(
+        FakeDriver(
+            sdwan_status=SDWANStatus(
+                device_id=DEVICE_ID,
+                enabled=True,
+                health_checks=(
+                    SDWANHealthCheck(
+                        device_id=DEVICE_ID,
+                        name="synthetic",
+                        member_sequence=1,
+                        state=SDWANPathState.DEAD,
+                    ),
+                ),
+            )
+        )
+    )
+    dead = await dead_runtime.investigator.investigate_sdwan(DEVICE_ID)
+    assert dead.diagnosis is not None
+    assert dead.diagnosis.strength is DiagnosisStrength.CONFIRMED
+
+    missing_runtime = make_runtime(
+        FakeDriver(
+            sdwan_status=SDWANStatus(
+                device_id=DEVICE_ID,
+                enabled=True,
+                members=(SDWANMember(device_id=DEVICE_ID, sequence=1),),
+            )
+        )
+    )
+    missing = await missing_runtime.investigator.investigate_sdwan(DEVICE_ID)
+    assert missing.status is InvestigationStatus.INSUFFICIENT
+    assert missing.diagnosis is not None
+    assert missing.diagnosis.missing_evidence
+
+
+@pytest.mark.asyncio
+async def test_ipsec_up_phase1_down_phase2_absent_and_interface_correlation() -> None:
+    up_runtime = make_runtime(
+        FakeDriver(
+            interfaces=(interface(name="wan-a"),),
+            ipsec_status=IPsecStatus(
+                device_id=DEVICE_ID,
+                enabled=True,
+                phase1=(
+                    IPsecPhase1(
+                        device_id=DEVICE_ID,
+                        name="vpn-a",
+                        interface="wan-a",
+                        state=IPsecPhaseState.ESTABLISHED,
+                    ),
+                ),
+                tunnels=(
+                    IPsecTunnel(
+                        device_id=DEVICE_ID,
+                        name="vpn-a",
+                        interface="wan-a",
+                        phase1_state=IPsecPhaseState.ESTABLISHED,
+                        phase2=(
+                            IPsecPhase2(
+                                device_id=DEVICE_ID,
+                                name="phase2-a",
+                                state=IPsecPhaseState.ESTABLISHED,
+                                sa_count=1,
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+    )
+    up = await up_runtime.investigator.investigate_ipsec(DEVICE_ID)
+    assert up.findings[0].code == "ipsec_tunnels_established"
+
+    down_runtime = make_runtime(
+        FakeDriver(
+            interfaces=(
+                interface(
+                    name="wan-b",
+                    admin=InterfaceState.UP,
+                    operational=InterfaceState.DOWN,
+                ),
+            ),
+            ipsec_status=IPsecStatus(
+                device_id=DEVICE_ID,
+                enabled=True,
+                phase1=(
+                    IPsecPhase1(
+                        device_id=DEVICE_ID,
+                        name="vpn-b",
+                        interface="wan-b",
+                        state=IPsecPhaseState.DOWN,
+                    ),
+                ),
+                tunnels=(
+                    IPsecTunnel(
+                        device_id=DEVICE_ID,
+                        name="vpn-b",
+                        interface="wan-b",
+                        phase1_state=IPsecPhaseState.DOWN,
+                    ),
+                ),
+            ),
+        )
+    )
+    down = await down_runtime.investigator.investigate_ipsec(DEVICE_ID)
+    assert {finding.code for finding in down.findings} >= {
+        "ipsec_phase1_down",
+        "ipsec_bound_interface_down",
+    }
+    assert down.diagnosis is not None
+    assert down.diagnosis.strength is DiagnosisStrength.STRONG
+    assert len(down.diagnosis.evidence_ids) == 2
+
+    phase2_runtime = make_runtime(
+        FakeDriver(
+            interfaces=(interface(name="wan-a"),),
+            ipsec_status=IPsecStatus(
+                device_id=DEVICE_ID,
+                enabled=True,
+                tunnels=(
+                    IPsecTunnel(
+                        device_id=DEVICE_ID,
+                        name="vpn-c",
+                        interface="wan-a",
+                        phase1_state=IPsecPhaseState.ESTABLISHED,
+                    ),
+                ),
+            ),
+        )
+    )
+    phase2 = await phase2_runtime.investigator.investigate_ipsec(DEVICE_ID)
+    assert phase2.findings[0].code == "ipsec_phase2_missing"
+
+
+@pytest.mark.asyncio
+async def test_dynamic_routing_established_idle_zero_prefix_and_ospf_states() -> None:
+    runtime = make_runtime(
+        FakeDriver(
+            bgp_status=BGPStatus(
+                device_id=DEVICE_ID,
+                enabled=True,
+                neighbors=(
+                    BGPNeighbor(
+                        device_id=DEVICE_ID,
+                        address=ip_address("198.51.100.10"),
+                        remote_as=65001,
+                        state=BGPSessionState.ESTABLISHED,
+                        prefixes_received=0,
+                    ),
+                    BGPNeighbor(
+                        device_id=DEVICE_ID,
+                        address=ip_address("203.0.113.10"),
+                        remote_as=65002,
+                        state=BGPSessionState.IDLE,
+                    ),
+                ),
+            ),
+            ospf_status=OSPFStatus(
+                device_id=DEVICE_ID,
+                enabled=True,
+                neighbors=(
+                    OSPFNeighbor(
+                        device_id=DEVICE_ID,
+                        neighbor_id=ip_address("198.51.100.20"),
+                        state=OSPFNeighborState.FULL,
+                    ),
+                    OSPFNeighbor(
+                        device_id=DEVICE_ID,
+                        neighbor_id=ip_address("203.0.113.20"),
+                        state=OSPFNeighborState.INIT,
+                    ),
+                ),
+            ),
+        )
+    )
+    report = await runtime.investigator.investigate_dynamic_routing(DEVICE_ID)
+    assert {finding.code for finding in report.findings} == {
+        "bgp_neighbor_not_established",
+        "bgp_zero_received_prefixes",
+        "ospf_neighbor_not_full",
+    }
+    assert report.diagnosis is not None
+    assert report.diagnosis.strength is DiagnosisStrength.CONFIRMED
+
+
+@pytest.mark.asyncio
+async def test_dynamic_routing_none_and_unsupported_produce_explicit_state() -> None:
+    none_runtime = make_runtime(
+        FakeDriver(
+            bgp_status=BGPStatus(device_id=DEVICE_ID, enabled=True),
+            ospf_status=OSPFStatus(device_id=DEVICE_ID, enabled=True),
+        )
+    )
+    none = await none_runtime.investigator.investigate_dynamic_routing(DEVICE_ID)
+    assert {finding.code for finding in none.findings} == {
+        "bgp_no_neighbors",
+        "ospf_no_neighbors",
+    }
+
+    unsupported_runtime = make_runtime(
+        FakeDriver(), capabilities=frozenset({Capability.BGP, Capability.OSPF})
+    )
+    unsupported = await unsupported_runtime.investigator.investigate_dynamic_routing(DEVICE_ID)
+    assert unsupported.status is InvestigationStatus.INSUFFICIENT
+    assert len(unsupported.failures) == 2
 
 
 def test_diagnosis_strength_has_only_qualitative_values() -> None:
