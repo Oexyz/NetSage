@@ -11,6 +11,10 @@ from netsage.ai.providers.openai import (
     OpenAIModel,
     OpenAIStructuredOutput,
 )
+from netsage.ai.providers.openai_codex import (
+    CodexOAuthStatus,
+    CodexOAuthTokenState,
+)
 from netsage.cli import ai_commands
 from netsage.cli.main import app
 from netsage.state import LocalState, StatePaths
@@ -64,6 +68,19 @@ def isolated_state(tmp_path: Path) -> LocalState:
     return state
 
 
+class UnconfiguredOAuthManager:
+    @property
+    def configured(self) -> bool:
+        return False
+
+    def status(self) -> CodexOAuthStatus:
+        return CodexOAuthStatus(
+            configured=False,
+            authenticated=False,
+            token_state=CodexOAuthTokenState.NOT_CONFIGURED,
+        )
+
+
 def test_openai_first_start_login_status_models_logout_and_config(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -94,8 +111,7 @@ def test_openai_first_start_login_status_models_logout_and_config(
         assert result.exit_code == 0, result.stdout
     assert "NOT AUTHENTICATED" in before.stdout
     assert "OpenAI authentication verified" in login.stdout
-    assert "direct API fallback" in login.stdout
-    assert "when Codex is absent" in login.stdout
+    assert "usage-based OpenAI API provider" in login.stdout
     assert "API key in OS credential store" in after.stdout
     assert "gpt-5.6-terra" in models.stdout
     assert API_KEY_CANARY not in "".join(
@@ -148,6 +164,7 @@ def test_ai_status_selects_authenticated_installed_codex(
 ) -> None:
     codex = FakeCodexStatusClient(installed=True, authenticated=True)
     monkeypatch.setattr(ai_commands, "_codex_client", lambda: codex)
+    monkeypatch.setattr(ai_commands, "_codex_oauth_manager", UnconfiguredOAuthManager)
     monkeypatch.setattr(ai_commands, "_api_keys", InMemoryOpenAIAPIKeyStore)
 
     result = runner.invoke(app, ["ai", "status"])
@@ -155,7 +172,7 @@ def test_ai_status_selects_authenticated_installed_codex(
     assert result.exit_code == 0
     assert "Codex App Server" in result.stdout
     assert "ChatGPT managed (plus)" in result.stdout
-    assert "OpenAI API fallback" in result.stdout
+    assert "OpenAI API" in result.stdout
     assert codex.closed is True
 
 
@@ -164,6 +181,7 @@ def test_ai_status_selects_api_only_when_codex_is_absent(
 ) -> None:
     codex = FakeCodexStatusClient(installed=False, authenticated=False)
     monkeypatch.setattr(ai_commands, "_codex_client", lambda: codex)
+    monkeypatch.setattr(ai_commands, "_codex_oauth_manager", UnconfiguredOAuthManager)
     monkeypatch.setattr(
         ai_commands,
         "_api_keys",
@@ -178,7 +196,7 @@ def test_ai_status_selects_api_only_when_codex_is_absent(
     assert "READY" in result.stdout
 
 
-def test_ai_and_ask_help_describe_codex_first_api_fallback() -> None:
+def test_ai_and_ask_help_describe_separate_provider_routes() -> None:
     ai_help = runner.invoke(app, ["ai", "--help"])
     provider_help = runner.invoke(app, ["ai", "openai", "--help"])
     ask_help = runner.invoke(app, ["ask", "--help"])
@@ -189,4 +207,4 @@ def test_ai_and_ask_help_describe_codex_first_api_fallback() -> None:
     combined = ai_help.stdout + provider_help.stdout + ask_help.stdout
     assert "OpenAI" in combined
     assert "Codex" in combined
-    assert "fallback" in combined
+    assert "usage-based" in combined

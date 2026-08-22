@@ -20,11 +20,16 @@ FortiOS driver still depends only on `CredentialProvider.resolve()` and does not
 know whether the provider uses Windows Credential Manager, a Linux keyring, or a
 future secure backend.
 
-This credential-profile layer is exclusively for network-device access. The
-direct OpenAI API fallback uses a separate OS-keyring service and no
-CredentialProfile. Its API key is never stored in device metadata, YAML,
-Inventory, or SQLite. The Codex path leaves authentication entirely under the
-official App Server and does not read or copy its tokens.
+This credential-profile layer is exclusively for network-device access. AI
+providers use separate OS-keyring services and no CredentialProfile:
+
+- native Codex OAuth: `NetSage AI OpenAI Codex`, one atomically activated token bundle;
+- direct OpenAI API: `NetSage OpenAI Provider`, one API key;
+- optional Codex App Server: credentials remain managed by Codex.
+
+Provider secrets are never stored in device metadata, YAML, Inventory, SQLite,
+Evidence, Audit, reports, logs, or AIContext. There is no crossover between the
+network, OAuth, and API-key domains.
 
 ## CLI
 

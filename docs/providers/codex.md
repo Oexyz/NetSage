@@ -1,7 +1,11 @@
-# Codex Provider
+# Optional Codex App Server Provider
 
-NetSage prefers an installed official Codex CLI as its OpenAI-backed reasoning
-runtime. The integration uses the documented `codex app-server` JSONL protocol;
+Provider ID: `codex-app-server`
+
+NetSage can reuse an installed official Codex CLI as an optional OpenAI-backed
+reasoning runtime. It is no longer required for ChatGPT subscription access: the
+separate experimental [`openai-codex`](openai-codex.md) provider implements a
+native device-code flow. This adapter uses the documented `codex app-server` JSONL protocol;
 it does not execute `codex exec`, scrape terminal output, read Codex auth files,
 or copy ChatGPT tokens.
 
@@ -12,13 +16,12 @@ Official reference:
 ## Selection and authentication
 
 ```text
-codex found on PATH
+explicit codex-app-server or auto fallback with codex on PATH
   -> Codex App Server
   -> Codex-managed ChatGPT/API authentication
 
 codex absent from PATH
-  -> direct OpenAI API provider
-  -> NetSage API key in OS keyring
+  -> this optional provider is unavailable
 ```
 
 Check the selected runtime with:
@@ -33,10 +36,9 @@ When Codex is installed but not authenticated, run:
 codex login
 ```
 
-NetSage intentionally does not fall back to potentially billable API usage when
-an installed Codex runtime is logged out, incompatible, or broken. It reports a
-bounded error. The API fallback is selected only when no `codex` executable is
-present on `PATH`.
+NetSage does not turn an App Server authentication/runtime failure into an
+invisible potentially billable API request. It reports a bounded error. Native
+OAuth and direct API authentication remain separate provider choices.
 
 ## Security boundary
 

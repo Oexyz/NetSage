@@ -119,16 +119,32 @@ unbounded loops. Final non-insufficient conclusions require valid current
 Evidence references and cannot structurally contradict an existing deterministic
 CONFIRMED diagnosis.
 
-FakeAIProvider remains deterministic and offline. When `codex` is installed,
-NetSage prefers the official Codex App Server and lets it own managed
-authentication. NetSage receives only minimal account status and never reads or
-copies its auth files, access tokens, refresh tokens, cookies, or email identity.
-Codex runs an ephemeral thread in an empty temporary directory with a scrubbed
-environment, built-in tools disabled, read-only/no-tool-network sandboxing, and
-protocol-level denial of tool and approval requests.
+FakeAIProvider remains deterministic and offline. The experimental native
+`openai-codex` provider can authenticate through the currently compatible
+ChatGPT/Codex device-authorization flow without a Codex executable. Access,
+refresh, and ID tokens are stored as one atomically activated, size-safe
+generation of OS-keyring records under service `NetSage AI OpenAI Codex`; they
+never enter NetSage files, SQLite, Audit,
+Evidence, reports, logs, AIContext, or CLI output. In-process refreshes are
+serialized and a complete replacement bundle is written only after successful
+validation. OAuth headers and raw auth/inference responses are never logged.
 
-When Codex is absent, the experimental OpenAIProvider uses the official Python
-SDK and Responses API with API-key authentication. The key is stored under a
+Those OAuth credentials are sent only to the isolated Codex compatibility
+backend. They are never used against `api.openai.com/v1/responses`. NetSage
+identifies itself as NetSage, follows no authentication redirects, keeps TLS
+verification enabled, supplies no provider-owned tools, uses `store=false`, and
+bounds request time and streamed output. This compatibility is experimental and
+is not described as an officially guaranteed third-party OAuth API.
+
+An installed official Codex App Server remains a separate optional provider and
+continues to own its managed authentication. NetSage receives only minimal
+account status and never reads or copies App Server tokens. Codex runs an
+ephemeral thread in an empty temporary directory with a scrubbed environment,
+built-in tools disabled, read-only/no-tool-network sandboxing, and protocol-level
+denial of tool and approval requests.
+
+The separate experimental `openai-api` provider uses the official Python SDK and
+Responses API with API-key authentication. The key is stored under a
 separate provider-specific OS-keyring service, never in the network-device
 CredentialProfile layer, YAML, SQLite, Audit, Evidence, logs, or AIContext.
 NetSage has no environment-variable or plaintext fallback.
@@ -145,10 +161,13 @@ CredentialReference, network password, SSH trust, raw CLI, CommandResult,
 Inventory, and History paths remain excluded. Raw App Server/SDK requests or
 responses, provider errors, hidden reasoning, tokens, API keys, and final AI
 assessments are not persisted.
-NetSage does not read or copy ChatGPT/Codex auth files, browser sessions, access
-tokens, refresh tokens, or cookies, and implements no undocumented OAuth flow.
-See the [Codex provider boundary](docs/providers/codex.md) and
-[OpenAI API fallback](docs/providers/openai.md).
+NetSage never reads browser sessions, cookies, or browser tokens. A compatible
+Codex `auth.json` can be copied into NetSage keyring storage only after explicit
+user confirmation; detection checks file presence only, import does not modify
+the source, and native login is preferred to avoid refresh-token races. See the
+[native Codex OAuth boundary](docs/providers/openai-codex.md), optional
+[Codex App Server provider](docs/providers/codex.md), and separate
+[OpenAI API provider](docs/providers/openai.md).
 
 The FortiOS live-test path discovers the SSH server key before asking for a
 credential and pins that key in memory after explicit user confirmation. Its

@@ -7,6 +7,8 @@ netsage
 
 netsage> devices
 netsage> investigate firewall-example
+netsage> ai codex login
+netsage> ai codex status
 netsage> ask firewall-example "Check routing."
 netsage> fortios run firewall-example fortios.execute.cpu.show --dry-run
 netsage> exit
@@ -17,6 +19,8 @@ The existing one-shot CLI remains unchanged:
 ```powershell
 netsage devices
 netsage investigate firewall-example
+netsage ai codex login
+netsage ai codex status
 netsage ask firewall-example "Check routing."
 netsage fortios run firewall-example fortios.execute.cpu.show --dry-run
 ```
@@ -39,7 +43,9 @@ Within the shell:
 - Ctrl+C during a command is reported as command cancellation.
 
 No command history is persisted. Passwords and provider API keys continue to use
-hidden prompts and are never accepted as shell command arguments.
+hidden prompts and are never accepted as shell command arguments. Native Codex
+OAuth prints only the temporary device URL/code; access and refresh tokens are
+never printed or added to command history.
 
 ## Security boundary
 
@@ -49,8 +55,8 @@ must be a registered top-level NetSage command. Inputs such as `whoami`, `dir`,
 are never forwarded to `os.system`, `subprocess`, `shell=True`, or another
 executable.
 
-Startup reads only enough local metadata to show a device count and checks
-whether `codex` is present on `PATH`. It does not connect to devices, resolve
+Startup reads only enough local metadata to show a device count and configured
+AI selection. It does not check authentication, connect to devices, resolve
 credentials, start AI, parse `fortios.md`, or scan a network. Network access
 begins only when an explicitly selected existing command requires it.
 

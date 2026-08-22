@@ -419,6 +419,9 @@ AI provider adapters and the agent runtime are separate concepts. All providers
 use the same broker boundary. Implemented experimental OpenAI-backed paths are:
 
 - the OpenAI API through officially supported SDKs and API authentication;
+- an experimental native ChatGPT/Codex OAuth compatibility provider which uses
+  the currently compatible device-authorization and Codex backend protocol
+  without requiring Codex CLI;
 - an explicitly requested Codex adapter through the official installed App
   Server and Codex-managed authentication.
 
@@ -427,23 +430,30 @@ Planned additional providers include:
 - Anthropic API, with Bedrock and Vertex AI later;
 - Ollama, then vLLM, LM Studio, and compatible endpoints.
 
-Browser-token extraction, custom OAuth hacks, and unofficial subscription
-credential reuse are forbidden. A deterministic `FakeAIProvider` is required
-before investigation tests depend on provider behavior.
+Browser-token extraction, browser-cookie reuse, and custom OAuth hacks remain
+forbidden. The native compatibility provider is reconstructed from current
+official open-source Codex protocol behavior and the Hermes interoperability
+reference, not browser state. It is experimental, isolates change-prone protocol
+values, and must never be represented as a stable officially guaranteed
+third-party OAuth contract. A deterministic `FakeAIProvider` is required before
+investigation tests depend on provider behavior.
 
-The direct provider uses the official OpenAI Python SDK and API-key
-authentication. When the official Codex executable is installed, NetSage
-instead prefers the documented App Server and lets Codex own its managed
-authentication lifecycle. NetSage never reads, copies, serializes, or returns
-Codex tokens or auth files. Provider authentication remains separate from
-network-device credentials and never enters AIContext.
+The direct API provider uses the official OpenAI Python SDK and its own API key.
+The native `openai-codex` provider stores its access, refresh, and ID tokens only
+as one atomically activated provider-specific OS-keyring bundle and uses them
+exclusively with the compatible Codex backend. It never sends them to the OpenAI Platform Responses
+API. An installed Codex App Server remains an optional separate route whose
+managed authentication stays owned by Codex. A compatible Codex auth file may
+be read only through an explicit confirmed import and is never modified.
+Provider authentication remains separate from network-device credentials and
+never enters AIContext, Evidence, History, Audit, logs, or reports.
 
-Neither path exposes provider-owned tools. The Codex adapter uses ephemeral
+No path exposes provider-owned tools. The Codex App Server adapter uses ephemeral
 threads, a scrubbed child environment, an empty temporary working directory,
 disabled built-in tool features, read-only/no-tool-network sandboxing, and
 protocol-level denial of tool requests. The NetSage AgentRuntime and Tool Broker
-remain the only owners of evidence-gathering execution. Browser-token extraction,
-browser cookies, and undocumented OAuth flows remain forbidden.
+remain the only owners of evidence-gathering execution. The native OAuth client
+performs authentication and constrained inference only; it owns no agent tools.
 
 Simple structured queries such as devices, device details, and interfaces do not
 require an LLM. AI is reserved for natural language, planning, hypotheses,

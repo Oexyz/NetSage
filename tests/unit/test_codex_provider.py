@@ -19,6 +19,12 @@ from netsage.ai.providers.openai import (
     OpenAIServiceClient,
     OpenAIStructuredOutput,
 )
+from netsage.ai.providers.openai_codex import (
+    CodexOAuthProvider,
+    CodexOAuthTokenBundle,
+    CodexOAuthTokenManager,
+    InMemoryCodexOAuthTokenStore,
+)
 from netsage.ai.providers.selection import select_preferred_openai_provider
 from netsage.models import Capability, Platform
 from netsage.state import OpenAIProviderSettings
@@ -71,6 +77,21 @@ class FakeCodexClient(CodexAppServerClient):
 class NeverUsedOpenAIClient(OpenAIServiceClient):
     async def list_models(self, _api_key: object) -> tuple[OpenAIModel, ...]:
         raise AssertionError("Codex selection must not access the OpenAI API")
+
+
+class NeverRefreshCodexOAuth:
+    async def refresh_tokens(self, _tokens: CodexOAuthTokenBundle) -> CodexOAuthTokenBundle:
+        raise AssertionError("unconfigured native OAuth must not refresh")
+
+
+def unconfigured_native_oauth() -> CodexOAuthProvider:
+    return CodexOAuthProvider(
+        OpenAIProviderSettings(),
+        tokens=CodexOAuthTokenManager(
+            store=InMemoryCodexOAuthTokenStore(),
+            refresh_client=NeverRefreshCodexOAuth(),
+        ),
+    )
 
     async def complete_structured(
         self, *_args: object, **_kwargs: object
@@ -157,24 +178,26 @@ def test_provider_selection_prefers_installed_codex_without_resolving_api_key() 
     codex = FakeCodexClient()
     selection = select_preferred_openai_provider(
         OpenAIProviderSettings(),
+        codex_oauth_provider=unconfigured_native_oauth(),
         codex_client=codex,
         api_keys=InMemoryOpenAIAPIKeyStore(),
         openai_client=NeverUsedOpenAIClient(),
     )
 
-    assert selection.provider_id == "codex"
+    assert selection.provider_id == "codex-app-server"
     assert isinstance(selection.provider, CodexProvider)
 
 
 def test_provider_selection_uses_direct_api_only_when_codex_is_absent() -> None:
     selection = select_preferred_openai_provider(
         OpenAIProviderSettings(),
+        codex_oauth_provider=unconfigured_native_oauth(),
         codex_client=FakeCodexClient(installed=False, authenticated=False),
         api_keys=InMemoryOpenAIAPIKeyStore("sk-synthetic-fallback"),
         openai_client=NeverUsedOpenAIClient(),
     )
 
-    assert selection.provider_id == "openai"
+    assert selection.provider_id == "openai-api"
 
 
 def test_codex_account_state_discards_time_and_identity_context() -> None:

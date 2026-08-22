@@ -45,7 +45,9 @@ Use `--ephemeral` to keep Evidence, Audit, and the Report in memory only.
 
 The current `netsage ask` workflow persists only its Broker Audit events. Its
 in-memory Evidence, Agent report, final assessment, and all raw provider protocol
-events are not written to History in this milestone.
+events are not written to History in this milestone. Native Codex access,
+refresh, and ID tokens remain exclusively in the OS keyring and never enter
+SQLite.
 
 Manual `fortios run` persists only its secret-free Audit metadata. The bounded
 `SANITIZED_TEXT` result is terminal/JSON output and is never inserted into

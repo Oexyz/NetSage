@@ -16,9 +16,10 @@ existing SecretRedactor. A persistence failure is surfaced; NetSage does not
 silently fall back to an in-memory sink when persistent Audit was selected.
 
 The AI-assisted `ask` workflow records Broker operations with the selected
-`ai_provider` (`codex` or `openai`). Audit does not store AIContext, prompts,
-output schemas, tokens, API keys, App Server/SDK requests or responses,
-reasoning, or final model text.
+stable provider ID (`openai-codex`, `codex-app-server`, or `openai-api`). Audit
+does not store AIContext, prompts, output schemas, OAuth tokens, API keys,
+authorization headers, App Server/HTTP/SDK requests or responses, reasoning, or
+final model text.
 
 Recent events are available without network access:
 

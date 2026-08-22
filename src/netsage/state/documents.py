@@ -5,6 +5,13 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, field_validator
 
 OpenAIReasoningEffort = Literal["none", "minimal", "low", "medium", "high", "xhigh", "max"]
+AIProviderChoice = Literal[
+    "auto",
+    "openai-codex",
+    "codex-app-server",
+    "openai-api",
+    "openai",
+]
 
 
 class OpenAIProviderSettings(BaseModel):
@@ -26,7 +33,9 @@ class OpenAIProviderSettings(BaseModel):
 class AISettings(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    provider: Literal["openai"] = "openai"
+    # "openai" remains accepted as the pre-native-OAuth compatibility value and
+    # has the same behavior as auto. New state writes use one of the explicit IDs.
+    provider: AIProviderChoice = "auto"
     openai: OpenAIProviderSettings = OpenAIProviderSettings()
 
 

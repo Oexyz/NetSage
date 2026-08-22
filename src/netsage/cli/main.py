@@ -246,7 +246,7 @@ def audit(limit: int = typer.Option(50, min=1, max=1000)) -> None:
 
 @app.command()
 def ask(device_id: str, question: str) -> None:
-    """Ask installed Codex or the OpenAI API to reason over sanitized Evidence."""
+    """Ask the selected AI provider to reason over sanitized Evidence."""
 
     ask_device(device_id, question)
 

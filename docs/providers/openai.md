@@ -1,10 +1,12 @@
-# OpenAI Provider
+# OpenAI API Provider
 
-NetSage's direct API fallback integrates the official OpenAI Python SDK and
+Provider ID: `openai-api`
+
+NetSage's direct API provider integrates the official OpenAI Python SDK and
 Responses API. It has no dependency on Codex, Node.js, an external AI CLI, a
-local App Server, or a provider-owned tool runtime. NetSage selects this path
-only when no `codex` executable is installed on `PATH`; see the
-[Codex provider](codex.md) for the preferred runtime.
+local App Server, or a provider-owned tool runtime. It remains distinct from
+[native Codex OAuth](openai-codex.md) and the optional
+[Codex App Server](codex.md).
 
 Official references:
 
@@ -30,13 +32,13 @@ OpenAI never receives network-device credentials, Inventory, SSH trust, raw CLI,
 CommandResult objects, local file paths, or a device management address. The API
 key is passed only to the trusted SDK client and is not part of provider input.
 
-## Fallback authentication
+## API authentication
 
 ```powershell
 netsage ai openai login
 ```
 
-Use this command when `netsage ai status` reports that Codex is absent. It opens
+Use this command for usage-based OpenAI Platform access. It opens
 the official OpenAI API-key page unless `--no-browser` is used,
 then accepts the key through a hidden prompt. NetSage validates it with the Models
 API before writing it to the operating-system credential store under the separate
@@ -46,10 +48,9 @@ The key is never accepted as a CLI argument or environment-variable fallback and
 is never written to NetSage YAML, Inventory, History, Audit, Evidence, reports, or
 logs. The network-device credential profiles remain a separate domain.
 
-The public OpenAI API documentation specifies API-key authentication. The direct
-fallback does not copy a ChatGPT subscription or Codex sign-in. When Codex is
-installed, NetSage instead talks to the official App Server and lets Codex own
-its documented managed authentication flow.
+The public OpenAI API documentation specifies API-key authentication. This
+provider does not copy a ChatGPT subscription or Codex sign-in. Conversely,
+Codex OAuth tokens are never used with this provider.
 
 Useful commands:
 
@@ -106,7 +107,7 @@ keys, and provider request transcripts are not persisted.
 netsage ask DEVICE "Check for obvious health or routing issues."
 ```
 
-When Codex is absent, `ask` validates API authentication and model availability, then builds
+When `openai-api` is selected, `ask` validates API authentication and model availability, then builds
 the deterministic FortiOS baseline and runs the bounded AgentRuntime. The existing
 `netsage investigate DEVICE` command remains AI-independent and deterministic.
 

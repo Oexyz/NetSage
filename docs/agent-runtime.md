@@ -2,8 +2,9 @@
 
 `AgentRuntime` is ordinary typed Python without LangChain, CrewAI, AutoGen, or
 another agent framework. FakeAIProvider remains the deterministic test provider;
-CodexProvider and OpenAIProvider implement the same contract through the
-official Codex App Server and OpenAI Python SDK respectively.
+native Codex OAuth, the optional Codex App Server, and the direct OpenAI API all
+implement the same contract. AgentRuntime does not know which isolated provider
+authentication domain is active.
 
 ## Loop
 
@@ -39,8 +40,8 @@ separate sections and always states that no configuration changed.
 ## Current status
 
 The runtime is an experimental boundary proven with scripted FakeAIProvider,
-fake App Server/API client loops, failures, malicious tool requests, prompt
-injection, and limit tests. `netsage ask` prefers installed Codex and otherwise
-uses the direct API; `netsage investigate` remains deterministic. Provider raw
+fake native OAuth/App Server/API client loops, failures, malicious tool requests,
+prompt injection, and limit tests. `netsage ask` follows the visible provider
+selection policy; `netsage investigate` remains deterministic. Provider raw
 responses, hidden reasoning, API keys, tokens, and request transcripts are not
 persisted.

@@ -64,7 +64,7 @@ class CodexProvider(AIProvider):
         if not account.installed:
             raise CodexProviderError(
                 CodexErrorCode.NOT_INSTALLED,
-                "Codex is not installed. NetSage should select the OpenAI API fallback.",
+                "The optional Codex App Server is not installed.",
             )
         if not account.authenticated:
             raise CodexProviderError(

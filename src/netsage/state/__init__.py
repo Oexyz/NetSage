@@ -11,6 +11,7 @@ from netsage.state.atomic import (
     atomic_write_yaml,
 )
 from netsage.state.documents import (
+    AIProviderChoice,
     AISettings,
     ApplicationSettingsDocument,
     OpenAIProviderSettings,
@@ -68,6 +69,7 @@ def __getattr__(name: str) -> object:
 
 __all__ = [
     "SCHEMA_VERSION",
+    "AIProviderChoice",
     "AISettings",
     "ApplicationSettingsDocument",
     "ApplicationSettingsStore",

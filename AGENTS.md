@@ -57,9 +57,11 @@ work is represented by the following commits on `main`:
 - `f5b74a9 feat: add Codex-first OpenAI runtime`
 - `da355c1 feat: add FortiOS command catalog and interactive shell`
 - `88044d9 test: make interactive help assertions portable`
+- `ed9adfa feat: add safe FortiOS catalog execution`
+- `5754b98 docs: add intermittent WAN failure case study`
 
-The published baseline before the active catalog-execution milestone is
-`88044d9`, with GitHub Actions run `32521802318` successful. The repository is
+The published baseline before the active native-OAuth milestone is `5754b98`,
+with GitHub Actions run `32526437839` successful. The repository is
 public; no release tag or GitHub Release has been created yet. Do not claim
 downloadable release assets exist until a `v*` tag has successfully completed
 the release workflow.
@@ -68,17 +70,18 @@ The current local verification snapshot is recorded in `CURRENT_MILESTONE.md`.
 Do not copy historical test totals from this guide when newer live gate output is
 available.
 
-As of 2026-08-21, Ruff format/check and strict mypy pass for 93 source files,
-pytest reports 260 passing tests with 88.07% coverage, the generated-catalog drift
-check is clean, and all configured pre-commit hooks pass. The installed Codex App
-Server, a synthetic evidence-free Structured Output turn, authorized FortiOS
-read-only workflows, and rebuilt Windows standalone were verified live without
-configuration changes.
+As of 2026-08-22, Ruff format/check and strict mypy pass for 101 source files,
+pytest reports 286 passing tests with 86.50% coverage, the generated-catalog drift
+check is clean, and all configured pre-commit hooks pass. Native ChatGPT/Codex
+OAuth login, keyring storage, strict synthetic inference, refresh rotation, an
+authorized FortiOS AI investigation, and the rebuilt/installed Windows standalone
+were verified live without configuration changes or token leaks.
 
-FortiOS CLI Coverage & Interactive Shell is published on `main` and CI-green at
-`88044d9`. The active milestone is now FortiOS Read-Only Catalog Execution
-Foundation. Its implementation and local verification are complete; consult Git
-and GitHub Actions for the current publication state.
+FortiOS Read-Only Catalog Execution Foundation is published on `main` and
+CI-green at `ed9adfa`. The active milestone is Native Codex OAuth Provider.
+Its implementation, tests, standalone, and authorized live verification are
+complete locally; consult `CURRENT_MILESTONE.md`, Git, and current gate output
+for publication state.
 `fortios.md` is local copyrighted reference material and must remain ignored;
 generated metadata, tests, and honest coverage documentation are the repository
 artifacts.
@@ -152,8 +155,10 @@ The Typer/Rich CLI currently implements and tests:
 - `netsage fortios commands search|show|coverage`
 - `netsage fortios run DEVICE COMMAND_ID [--arg NAME=VALUE] [--dry-run] [--json]`
 - `netsage ai status`
+- `netsage ai configure --provider ...`
+- `netsage ai codex login|status|logout|import-existing`
 - `netsage ai openai status|login|logout|models|configure`
-- `netsage ask DEVICE "question"` for the Codex-first/OpenAI-API-fallback workflow
+- `netsage ask DEVICE "question"` for the visible selected-provider workflow
 
 `doctor` reports Python, Git, SSH, OS credential-store, optional Docker, and safe
 AI runtime/auth status. Local state, credential metadata, SSH trust, FortiOS
@@ -173,9 +178,11 @@ Persistent and ephemeral Investigation modes are live-verified. The local SQLite
 database successfully reloads typed Reports/Evidence and append-only Audit across
 processes; a byte scan found no credential material.
 
-The current runtime selection prefers an installed official Codex App Server and
-uses the direct official OpenAI API only when Codex is absent. NetSage does not
-bundle Codex or Node.js and never reads/copies Codex auth material.
+The current runtime selection prefers configured native `openai-codex` OAuth,
+then an optional installed Codex App Server, then a separately configured
+`openai-api` key. Native OAuth requires neither Codex nor Node.js. Tokens live
+only in the provider-specific OS keyring; compatible Codex auth import requires
+explicit confirmation and never modifies its source.
 
 ### Architecture contracts
 
@@ -187,8 +194,9 @@ The foundation has intentionally small, testable boundaries:
   `get_firewall_policies`, `ping`, and `traceroute`.
 - `AIProvider` accepts only sanitized context and broker-owned `StructuredTool`
   definitions and returns typed provider-neutral final/tool-call responses.
-  `CodexProvider` implements it through the official installed App Server;
-  `OpenAIProvider` implements the absent-Codex fallback through the official
+  `CodexOAuthProvider` implements native experimental ChatGPT/Codex OAuth;
+  `CodexProvider` implements the optional official installed App Server;
+  `OpenAIProvider` implements the separate API-key path through the official
   Python SDK and Responses API. Claude, Ollama, and compatible providers do not
   exist yet.
 - `CredentialProvider` resolves opaque credential references inside the trusted
@@ -260,9 +268,14 @@ The foundation has intentionally small, testable boundaries:
 - `AgentRuntime` has hard step/tool budgets, repeat protection, Broker-only tool
   execution, Evidence-only results, and final Evidence-reference validation.
   `FakeAIProvider` is deterministic and performs no external traffic.
-- `OpenAIProvider` uses the official Python SDK, provider-specific OS-keyring API
-  keys, authenticated model listing, `store=false`, no built-in OpenAI tools, and
-  Pydantic Structured Output. AgentRuntime and Broker retain tool authority.
+- `CodexOAuthProvider` uses current device authorization and the isolated Codex
+  backend, keeps one atomically activated token-bundle generation under keyring service
+  `NetSage AI OpenAI Codex`, serializes refresh, follows no redirects, identifies
+  itself as NetSage, and exposes no provider-owned tools. This is experimental
+  compatibility, not a guaranteed third-party OAuth contract.
+- `OpenAIProvider` uses the official Python SDK, its separate provider-specific
+  OS-keyring API key, authenticated model listing, `store=false`, no built-in
+  OpenAI tools, and Pydantic Structured Output. OAuth/API-key crossover is denied.
 - `CodexProvider` uses the documented App Server, Codex-managed auth, ephemeral
   isolated threads, a scrubbed environment, disabled provider-owned tools, and
   strict Structured Output. Installed but unusable Codex fails closed rather
@@ -313,8 +326,10 @@ The foundation has intentionally small, testable boundaries:
   non-encryption, transaction, deletion, and append-only boundaries.
 - `docs/ai-boundary.md` and `docs/agent-runtime.md` document provider-visible
   data, tool control, loop limits, prompt injection, and Evidence validation.
-- `docs/providers/openai.md` documents API-key setup, model discovery, the direct
-  Responses API boundary, disabled built-in tools, billing, and troubleshooting.
+- `docs/providers/openai-codex.md` documents native device authorization,
+  keyring tokens, refresh, direct Codex inference, import, and limitations;
+  `docs/providers/codex.md` covers the optional App Server;
+  `docs/providers/openai.md` covers the separate API-key/billing path.
 - `docs/fortios-command-catalog.md` and the generated coverage report distinguish
   catalog knowledge from executable/typed support; `docs/interactive-shell.md`
   documents the shared-handler REPL and OS-shell denial.
@@ -370,7 +385,7 @@ src/netsage/
   credentials/      Profiles, OS-keyring passwords, and isolation contracts
   models/           Validated non-secret device and command-result models
   agent/            Bounded provider-neutral runtime, report, and FortiOS AI composition
-  ai/               Typed context/tools/responses, FakeAIProvider, Codex, and OpenAI API fallback
+  ai/               Typed context/tools/responses plus native OAuth, App Server, and API providers
   evidence/         Typed Broker-result evidence, provenance, and store contract
   history/          SQLite lifecycle, typed Evidence/Report stores, and Audit sink
   investigations/   Deterministic evidence-backed workflows and reports
@@ -464,8 +479,8 @@ Do not imply that the following exist, and do not add them incidentally:
 
 ## Next recommended milestone
 
-Complete FortiOS Read-Only Catalog Execution Foundation before beginning anything
-else. After it is verified, promote a small reviewed set to semantic normalized
-operations or broaden deterministic investigations. Do not automatically begin
-another provider, vendor, discovery, topology, probe, vantage-point, MCP, Web, or
+Complete Native Codex OAuth Provider before beginning anything else. After it is
+verified, return to a small reviewed set of semantic FortiOS operations or
+broaden deterministic investigations. Do not automatically begin another
+provider, vendor, discovery, topology, probe, vantage-point, MCP, Web, or
 configuration milestone.

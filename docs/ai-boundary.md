@@ -1,11 +1,11 @@
 # Provider-neutral AI Boundary
 
 NetSage implements a typed security boundary, deterministic FakeAIProvider, an
-experimental installed-Codex adapter, and a direct OpenAI API fallback. Codex
-owns its managed authentication and NetSage never receives its tokens. The API
-fallback key is stored separately in the OS credential store and is consumed
-only by the trusted official SDK client. See
-[Codex provider](providers/codex.md) and [OpenAI provider](providers/openai.md).
+experimental native ChatGPT/Codex OAuth compatibility provider, an optional
+installed-Codex adapter, and a direct OpenAI API provider. Native OAuth tokens
+and the API key use different OS-keyring services; neither enters AIContext. See
+[native Codex OAuth](providers/openai-codex.md), optional
+[Codex App Server](providers/codex.md), and [OpenAI API](providers/openai.md).
 
 ## AI-visible context
 
@@ -49,13 +49,19 @@ The provider never receives CommandResult or raw device output. Unknown, shell,
 credential, malformed, unavailable, unsupported, and denied requests produce
 bounded result categories.
 
-## Real provider transport
+## Real provider transports
 
-OpenAI receives the same semantic contract as FakeAIProvider. The adapter
-serializes only AIContext, the Broker-filtered StructuredTool catalog, and typed
-prior tool results. The Responses API uses a Pydantic Structured Output envelope,
-`store=false`, and an empty built-in-tools list.
+Every provider receives the same semantic contract as FakeAIProvider. Each
+adapter serializes only AIContext, the Broker-filtered StructuredTool catalog,
+and typed prior tool results. Native Codex OAuth and the direct API use strict
+structured output, `store=false`, and an empty built-in-tools list. The optional
+App Server uses the same schema and rejects all server-owned tool requests.
 
 Tool names in model output are data for AgentRuntime, not OpenAI function tools.
 Raw provider responses, SDK errors, hidden reasoning, request transcripts, and
 provider authentication are not persisted.
+
+Native Codex OAuth authentication is a trusted transport concern. Its keyring
+store and refresh client are not provider input and are not reachable as model
+tools. The resulting bearer is restricted to the Codex compatibility backend;
+the separate API provider can resolve only its own API-key service.

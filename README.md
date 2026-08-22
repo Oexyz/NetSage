@@ -38,8 +38,9 @@ shell, password, private-key, or API-token access.
 | Experimental | Secure local onboarding | Versioned non-secret state, OS-keyring passwords, persistent SSH fingerprint trust, and FortiOS Device-ID workflows |
 | Experimental | Persistent history | Local typed Investigation/Evidence history and append-only secret-free Broker Audit in SQLite |
 | Experimental | Provider-neutral AI boundary | Sanitized typed context, Broker-owned tools, bounded AgentRuntime, Evidence validation, and FakeAIProvider |
-| Experimental | Codex runtime | Installed official Codex App Server, Codex-managed ChatGPT login, isolated ephemeral reasoning, and no provider-owned tools |
-| Experimental | OpenAI API fallback | Official Python SDK, hidden API-key setup, OS-keyring isolation, model discovery, Responses API, and structured output when Codex is absent |
+| Experimental | OpenAI Codex OAuth | ChatGPT-subscription-backed Codex access without requiring Codex CLI; OS-keyring tokens and no provider-owned tools |
+| Experimental | Codex App Server | Optional installed official Codex runtime with Codex-managed authentication and isolated ephemeral reasoning |
+| Experimental | OpenAI API | Separate official SDK/API-key route with OS-keyring isolation, model discovery, Responses API, and usage-based billing |
 | In development | Network platforms | FortiSwitch, HP/HPE/ArubaOS-Switch, and Aruba AOS-CX |
 | In development | Security pipeline | Persistent audit and evidence storage |
 | Planned | Additional AI providers | Anthropic Claude, Ollama, and compatible endpoints |
@@ -86,16 +87,17 @@ See the [master architecture](PROJECT_SPEC.md), [current milestone](CURRENT_MILE
 and complete [security model](SECURITY.md).
 
 The implemented AI boundary is documented in [AI boundary](docs/ai-boundary.md)
-and [agent runtime](docs/agent-runtime.md). The experimental automatic selection
-is documented in [Codex provider](docs/providers/codex.md) and
-[OpenAI provider](docs/providers/openai.md). Claude, Ollama, and other real
-providers remain unimplemented.
+and [agent runtime](docs/agent-runtime.md). Provider details are documented for
+[native Codex OAuth](docs/providers/openai-codex.md), the optional
+[Codex App Server](docs/providers/codex.md), and the separate
+[OpenAI API](docs/providers/openai.md). Claude, Ollama, and other real providers
+remain unimplemented.
 
 ## Quick start for contributors
 
 Install Git, Python 3.13, `uv`, and OpenSSH. Docker is optional for future
-integration work. NetSage itself does not require Node.js. An official Codex
-installation is optional; when it is absent, NetSage uses the OpenAI API path.
+integration work. NetSage itself does not require Node.js or Codex CLI. An
+existing official Codex installation can be reused optionally.
 
 ```powershell
 git clone <repository-url> NetSage
@@ -117,18 +119,20 @@ uv run netsage device test fortigate-example
 uv run netsage investigate fortigate-example
 uv run netsage investigations
 uv run netsage audit --limit 20
+uv run netsage ai codex login
 uv run netsage ai status
 uv run netsage ask fortigate-example "Check for obvious health or routing issues."
 ```
 
-If `codex` is installed on `PATH`, authenticate it once using its official flow:
+Native ChatGPT/Codex OAuth works without a Codex executable or OpenAI API key:
 
 ```powershell
-codex login
+netsage ai codex login
+netsage ai codex status
 netsage ai status
 ```
 
-If Codex is not installed, configure the direct API fallback instead:
+For separate usage-based OpenAI Platform access, configure the API provider:
 
 ```powershell
 netsage ai openai login
@@ -246,6 +250,8 @@ netsage fortios commands show COMMAND_ID
 netsage fortios commands coverage
 netsage fortios run DEVICE COMMAND_ID [--arg NAME=VALUE] [--dry-run] [--json]
 netsage ai status
+netsage ai configure --provider auto|openai-codex|codex-app-server|openai-api
+netsage ai codex login|status|logout|import-existing
 netsage ai openai status|login|logout|models|configure
 netsage ask DEVICE "question"
 ```
@@ -311,11 +317,12 @@ terminal-only, and never automatic Evidence. See
 [catalog execution](docs/fortios-catalog-execution.md), and the
 [generated coverage report](docs/fortios-command-coverage.md).
 
-The separate AI-assisted command selects its runtime automatically:
+The AI-assisted command uses a visible selection policy:
 
-1. If the official `codex` executable exists on `PATH`, NetSage uses
-   `codex app-server` and its Codex-managed login.
-2. If Codex is absent, NetSage uses the direct OpenAI Responses API fallback.
+1. configured native `openai-codex` OAuth;
+2. optional existing `codex-app-server` authentication;
+3. configured `openai-api` key;
+4. no AI provider.
 
 Check the effective selection before an investigation:
 
@@ -324,24 +331,28 @@ netsage ai status
 netsage ask fortigate-example "Check for obvious health or routing issues."
 ```
 
-For the Codex path:
+Native ChatGPT/Codex OAuth requires neither Codex CLI nor an OpenAI API key:
 
 ```powershell
-codex login
+netsage ai codex login
+netsage ai codex status
 netsage ai status
 ```
 
-NetSage never reads or copies Codex token files, browser sessions, access tokens,
-or refresh tokens. The official App Server owns authentication and refresh. Its
-reasoning thread is ephemeral, runs from an empty temporary directory with a
-scrubbed environment and read-only/no-network tool sandbox, and receives no
-Codex shell, MCP, app, browser, computer-use, or subagent capability. Any
-provider-owned tool request fails closed. Codex receives only the same sanitized
-typed context that the direct provider receives. See the official
-[Codex App Server documentation](https://developers.openai.com/codex/app-server)
-and [NetSage Codex adapter](docs/providers/codex.md).
+The experimental native provider follows the currently compatible Codex
+device-authorization/backend behavior and may require updates when that upstream
+behavior changes. Access, refresh, and ID tokens live only in a dedicated OS
+keyring entry. They are never sent to the OpenAI Platform API, AIContext, YAML,
+History, Audit, Evidence, logs, reports, or terminal output. See
+[native Codex OAuth](docs/providers/openai-codex.md).
 
-For the direct API fallback when Codex is not installed:
+An installed Codex App Server remains optional. It owns its authentication and
+runs ephemeral isolated turns with provider-owned tools disabled and denied.
+Native OAuth does not install, invoke, or depend on Codex CLI. An existing
+compatible Codex auth file can be imported only after explicit confirmation and
+is never modified.
+
+For separate usage-based API access:
 
 ```powershell
 netsage ai openai login
@@ -349,17 +360,17 @@ netsage ai openai status
 netsage ask fortigate-example "Check for obvious health or routing issues."
 ```
 
-An installed but unauthenticated or incompatible Codex does not silently fall
-back to potentially billable API usage; NetSage stops with a bounded error and
-asks the user to run `codex login`. Direct API requests require an OpenAI API
-project/key and may incur separate API charges. Deterministic device and
-investigation commands work without either AI authentication method.
+Direct API requests require an OpenAI API project/key and may incur separate API
+charges. NetSage does not silently turn OAuth/App Server failures into API calls.
+Choose a provider explicitly with `netsage ai configure --provider ...` when
+automatic selection is not desired.
 
-The fallback API key is validated through the Models API and stored only in a
-separate OS keyring entry. It never enters YAML, History, Audit, Evidence, logs,
-or model context. `ask` sends only sanitized typed Evidence and Broker-owned tool
-metadata, sets `store=false`, and enables no OpenAI built-in tools. See
-[OpenAI provider](docs/providers/openai.md) for setup and limitations.
+The API key is validated through the Models API and stored only in its own OS
+keyring entry. It never enters YAML, History, Audit, Evidence, logs, or model
+context. Every provider receives only sanitized typed Evidence and Broker-owned
+tool metadata, uses strict structured output, and exposes no built-in model
+tools. Deterministic device and investigation commands work without any AI
+authentication. See [OpenAI API provider](docs/providers/openai.md).
 
 ## Why the foundation is auditable
 
@@ -373,8 +384,8 @@ metadata, sets `store=false`, and enables no OpenAI built-in tools. See
 
 The code deliberately contains no automatic discovery, unrestricted local or
 remote shell for AI, network configuration workflow, web dashboard, or NetSage
-MCP server. The only real AI paths are the experimental Codex App Server adapter
-and direct OpenAI API fallback.
+MCP server. The real AI paths are the experimental native Codex OAuth provider,
+optional Codex App Server adapter, and separate OpenAI API provider.
 
 ## Roadmap
 
@@ -407,7 +418,7 @@ and direct OpenAI API fallback.
 - Interactive no-argument shell over the same Typer command handlers
 - Safe quoting, help, exit/quit, EOF/Ctrl+C, and explicit OS-command rejection
 
-### FortiOS read-only catalog execution — current milestone
+### FortiOS read-only catalog execution — complete
 
 - Deterministic disposition for all 1,049 READ_ONLY definitions
 - 515 promoted one-shot commands; 362 require review; 172 non-executable
@@ -425,7 +436,7 @@ and direct OpenAI API fallback.
 - Partial evidence and `INSUFFICIENT` reports when collection fails
 - Human-readable reports with no AI dependency
 
-### Secure local state and device onboarding — current milestone, complete
+### Secure local state and device onboarding — complete
 
 - Platform-appropriate, schema-versioned non-secret YAML state
 - Atomic writes, corruption handling, and restrictive user-level permissions
@@ -452,17 +463,27 @@ and direct OpenAI API fallback.
 - Evidence-backed final-response and deterministic-contradiction validation
 - Deterministic FakeAIProvider for hardware- and API-free tests
 
-### Codex-first OpenAI runtime integration — complete, experimental
+### Codex App Server and OpenAI API integration — complete, experimental
 
 - Installed official Codex App Server is preferred and uses Codex-managed auth
-- Direct official Python SDK/Responses API fallback only when Codex is absent
-- Hidden fallback API-key setup and a provider-specific OS-keyring namespace
+- Direct official Python SDK/Responses API path with a separate API-key domain
+- Hidden API-key setup and a provider-specific OS-keyring namespace
 - Ephemeral isolated Codex threads with built-in tools disabled and denied
 - Authenticated API model discovery and explicit model/effort configuration
 - Strict Structured Outputs through the provider-neutral AI contract
 - Direct API uses `store=false`; neither path exposes provider-owned tools
 - Real `netsage ask`; deterministic `netsage investigate` remains unchanged
 - Fake App Server/API clients in CI plus a local synthetic Codex smoke test
+
+### Native Codex OAuth provider — current milestone, experimental
+
+- ChatGPT/Codex device authorization without Codex CLI or API key
+- Access, refresh, and ID tokens in one atomically activated OS-keyring bundle only
+- Serialized refresh and bounded auth/inference failures with no token output
+- Direct Codex Responses backend with strict output, no tools, and `store=false`
+- Visible native OAuth, optional App Server, and usage-based API separation
+- Explicit read-only existing-Codex import; source credentials are never modified
+- Same AgentRuntime, ToolBroker, AIContext, Evidence, and Observe boundaries
 
 ### Vendor and provider expansion — planned
 

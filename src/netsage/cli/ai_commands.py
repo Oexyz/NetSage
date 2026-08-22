@@ -1,4 +1,4 @@
-"""Codex-first OpenAI runtime selection, API fallback, and ask CLI."""
+"""Separated native OAuth, optional App Server, OpenAI API, and ask CLI."""
 
 import asyncio
 import webbrowser
@@ -33,12 +33,28 @@ from netsage.ai.providers.openai import (
     OpenAIProviderError,
     OpenAIServiceClient,
 )
+from netsage.ai.providers.openai_codex import (
+    CodexExistingAuthImporter,
+    CodexExistingAuthImportError,
+    CodexOAuthCredentialStoreError,
+    CodexOAuthHTTPClient,
+    CodexOAuthInferenceClient,
+    CodexOAuthProtocolError,
+    CodexOAuthProvider,
+    CodexOAuthStatus,
+    CodexOAuthTokenManager,
+    CodexOAuthTokenStore,
+    KeyringCodexOAuthTokenStore,
+    OfficialCodexOAuthInferenceClient,
+)
+from netsage.ai.providers.openai_codex.protocol import EXPERIMENTAL_COMPATIBILITY_NOTICE
 from netsage.ai.providers.selection import select_preferred_openai_provider
 from netsage.credentials import CredentialStoreError, KeyringSecretStore
 from netsage.drivers.fortios import FortiOSParseError, FortiOSTransportError
 from netsage.history import HistoryError
 from netsage.inventory import UnknownDeviceError
 from netsage.state import (
+    AIProviderChoice,
     InvalidStateReferenceError,
     LocalState,
     OpenAIProviderSettings,
@@ -50,6 +66,7 @@ from netsage.state import (
 
 OPENAI_API_KEYS_URL = "https://platform.openai.com/api-keys"
 _EFFORT_ADAPTER: TypeAdapter[OpenAIReasoningEffort] = TypeAdapter(OpenAIReasoningEffort)
+_PROVIDER_ADAPTER: TypeAdapter[AIProviderChoice] = TypeAdapter(AIProviderChoice)
 console = Console()
 ai_app = typer.Typer(
     name="ai",
@@ -58,10 +75,16 @@ ai_app = typer.Typer(
 )
 openai_app = typer.Typer(
     name="openai",
-    help="Configure the direct OpenAI API fallback used when Codex is absent.",
+    help="Configure the separate usage-based OpenAI API provider.",
+    no_args_is_help=True,
+)
+codex_oauth_app = typer.Typer(
+    name="codex",
+    help="Manage experimental native ChatGPT/Codex OAuth without requiring Codex CLI.",
     no_args_is_help=True,
 )
 ai_app.add_typer(openai_app)
+ai_app.add_typer(codex_oauth_app)
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,6 +94,17 @@ class OpenAIStatusSnapshot:
     selected_model: str
     selected_available: bool
     credential_store_available: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class AIRuntimeStatusSnapshot:
+    provider_choice: AIProviderChoice
+    oauth: CodexOAuthStatus | None
+    oauth_store_available: bool
+    app_server: CodexAccountState
+    app_server_available: bool
+    api_configured: bool
+    api_store_available: bool
 
 
 def _state() -> LocalState:
@@ -93,6 +127,41 @@ def _client() -> OpenAIServiceClient:
 
 def _codex_client() -> CodexAppServerClient:
     return OfficialCodexAppServerClient()
+
+
+def _codex_oauth_store() -> CodexOAuthTokenStore:
+    return KeyringCodexOAuthTokenStore()
+
+
+def _codex_oauth_http_client() -> CodexOAuthHTTPClient:
+    return CodexOAuthHTTPClient()
+
+
+def _codex_oauth_inference_client() -> CodexOAuthInferenceClient:
+    return OfficialCodexOAuthInferenceClient()
+
+
+def _codex_oauth_manager(
+    store: CodexOAuthTokenStore | None = None,
+    client: CodexOAuthHTTPClient | None = None,
+) -> CodexOAuthTokenManager:
+    resolved_store = store or _codex_oauth_store()
+    resolved_client = client or _codex_oauth_http_client()
+    return CodexOAuthTokenManager(store=resolved_store, refresh_client=resolved_client)
+
+
+def _codex_oauth_provider(
+    settings: OpenAIProviderSettings,
+    *,
+    store: CodexOAuthTokenStore | None = None,
+    protocol: CodexOAuthHTTPClient | None = None,
+    inference: CodexOAuthInferenceClient | None = None,
+) -> CodexOAuthProvider:
+    return CodexOAuthProvider(
+        settings,
+        tokens=_codex_oauth_manager(store, protocol),
+        client=inference or _codex_oauth_inference_client(),
+    )
 
 
 def _fail(error: AIProviderError) -> typer.Exit:
@@ -138,74 +207,110 @@ async def _status_snapshot(
     )
 
 
+def _runtime_status_snapshot() -> AIRuntimeStatusSnapshot:
+    state = LocalState()
+    choice: AIProviderChoice = (
+        state.settings.load().ai.provider if state.paths.settings.exists() else "auto"
+    )
+    try:
+        oauth = _codex_oauth_manager().status()
+        oauth_store_available = True
+    except CodexOAuthCredentialStoreError:
+        oauth = None
+        oauth_store_available = False
+    try:
+        app_server = asyncio.run(_codex_account(_codex_client()))
+        app_server_available = True
+    except CodexProviderError:
+        app_server = CodexAccountState(installed=True, authenticated=False)
+        app_server_available = False
+    try:
+        api_configured = _api_keys().has_api_key()
+        api_store_available = True
+    except OpenAIAuthStoreError:
+        api_configured = False
+        api_store_available = False
+    return AIRuntimeStatusSnapshot(
+        provider_choice=choice,
+        oauth=oauth,
+        oauth_store_available=oauth_store_available,
+        app_server=app_server,
+        app_server_available=app_server_available,
+        api_configured=api_configured,
+        api_store_available=api_store_available,
+    )
+
+
+def _effective_provider(snapshot: AIRuntimeStatusSnapshot) -> str | None:
+    choice = "auto" if snapshot.provider_choice == "openai" else snapshot.provider_choice
+    if choice != "auto":
+        return choice
+    if snapshot.oauth is not None and snapshot.oauth.configured:
+        return "openai-codex"
+    if snapshot.app_server.installed:
+        return "codex-app-server"
+    if snapshot.api_configured:
+        return "openai-api"
+    return None
+
+
+def _provider_ready(snapshot: AIRuntimeStatusSnapshot, provider_id: str | None) -> bool:
+    if provider_id == "openai-codex":
+        return snapshot.oauth is not None and snapshot.oauth.authenticated
+    if provider_id == "codex-app-server":
+        return snapshot.app_server_available and snapshot.app_server.authenticated
+    if provider_id == "openai-api":
+        return snapshot.api_store_available and snapshot.api_configured
+    return False
+
+
+def _provider_display(provider_id: str | None) -> str:
+    if provider_id is None:
+        return "No AI provider"
+    return {
+        "openai-codex": "OpenAI Codex",
+        "codex-app-server": "Codex App Server",
+        "openai-api": "OpenAI API",
+    }.get(provider_id, "Unknown AI provider")
+
+
 def ai_doctor_checks() -> tuple[tuple[str, str, str], ...]:
     """Return safe automatic-runtime diagnostics without exposing auth material."""
 
     try:
-        codex = asyncio.run(_codex_account(_codex_client()))
-        state = LocalState()
-        settings = (
-            state.settings.load().ai.openai
-            if state.paths.settings.exists()
-            else OpenAIProviderSettings()
-        )
-        if codex.installed:
-            try:
-                api_fallback = _api_keys().has_api_key()
-                fallback_status = "READY" if api_fallback else "NOT CONFIGURED"
-            except OpenAIAuthStoreError:
-                fallback_status = "UNAVAILABLE"
-            return (
-                (
-                    "AI Runtime",
-                    "OK" if codex.authenticated else "MISSING",
-                    "Codex App Server (preferred)",
-                ),
-                (
-                    "Codex Auth",
-                    "OK" if codex.authenticated else "MISSING",
-                    _codex_auth_details(codex),
-                ),
-                (
-                    "OpenAI API Fallback",
-                    fallback_status,
-                    "used only when Codex is not installed",
-                ),
-            )
-        snapshot = asyncio.run(_status_snapshot(settings, _api_keys(), _client()))
-    except CodexProviderError:
+        snapshot = _runtime_status_snapshot()
+    except StateError:
         return (
-            ("AI Runtime", "ERROR", "installed Codex App Server is unavailable"),
-            ("Codex Auth", "UNKNOWN", "run: codex login status"),
-            ("OpenAI API Fallback", "NOT SELECTED", "Codex is installed"),
+            ("AI Runtime", "ERROR", "provider state unavailable"),
+            ("Codex OAuth", "UNKNOWN", "not checked"),
+            ("OpenAI API", "UNKNOWN", "not checked"),
         )
-    except (StateError, OpenAIProviderError):
-        return (
-            ("AI Runtime", "ERROR", "direct OpenAI API unavailable"),
-            ("OpenAI Auth", "UNKNOWN", "not checked"),
-            ("OpenAI Model", "UNKNOWN", "not checked"),
-        )
+    selected = _effective_provider(snapshot)
     return (
-        ("AI Runtime", "OK", "OpenAI API (Codex not installed)"),
         (
-            "OpenAI Auth",
-            (
-                "OK"
-                if snapshot.account.authenticated
-                else "MISSING"
-                if snapshot.credential_store_available
-                else "UNAVAILABLE"
-            ),
-            "API key in OS credential store"
-            if snapshot.account.authenticated
-            else "run: netsage ai openai login"
-            if snapshot.credential_store_available
-            else "secure OS credential store unavailable",
+            "AI Runtime",
+            "OK" if _provider_ready(snapshot, selected) else "MISSING",
+            _provider_display(selected),
         ),
         (
-            "OpenAI Model",
-            "OK" if snapshot.selected_available else "UNVERIFIED",
-            snapshot.selected_model,
+            "Codex OAuth",
+            (
+                "OK"
+                if snapshot.oauth is not None and snapshot.oauth.authenticated
+                else "MISSING"
+                if snapshot.oauth_store_available
+                else "UNAVAILABLE"
+            ),
+            "ChatGPT subscription; native experimental compatibility",
+        ),
+        (
+            "OpenAI API",
+            "OK"
+            if snapshot.api_configured
+            else "MISSING"
+            if snapshot.api_store_available
+            else "UNAVAILABLE",
+            "usage-based API; separate credential domain",
         ),
     )
 
@@ -224,43 +329,219 @@ def _codex_auth_details(account: CodexAccountState) -> str:
 
 @ai_app.command("status")
 def ai_status() -> None:
-    """Show the automatic Codex-first runtime selection and fallback readiness."""
+    """Show explicit provider/auth/billing routes without revealing credentials."""
 
     try:
-        codex = asyncio.run(_codex_account(_codex_client()))
-        api_keys = _api_keys()
-        try:
-            api_ready = api_keys.has_api_key()
-            api_status = "READY" if api_ready else "NOT CONFIGURED"
-        except OpenAIAuthStoreError:
-            api_status = "UNAVAILABLE"
-    except CodexProviderError as error:
-        raise _fail(error) from error
+        snapshot = _runtime_status_snapshot()
+    except StateError as error:
+        console.print(f"[red]{error}[/red]")
+        raise typer.Exit(code=1) from error
+    selected = _effective_provider(snapshot)
     table = Table(title="NetSage AI runtime selection")
     table.add_column("Area")
     table.add_column("Status")
     table.add_column("Details")
     table.add_row(
-        "Selected runtime",
-        "OK" if (not codex.installed or codex.authenticated) else "NOT AUTHENTICATED",
-        "Codex App Server" if codex.installed else "OpenAI API",
+        "Selected provider",
+        "OK" if _provider_ready(snapshot, selected) else "NOT AUTHENTICATED",
+        _provider_display(selected),
     )
     table.add_row(
-        "Codex",
-        "OK" if codex.authenticated else "NOT AUTHENTICATED" if codex.installed else "ABSENT",
-        _codex_auth_details(codex) if codex.installed else "not found on PATH",
+        "Selection mode",
+        "OK",
+        "auto" if snapshot.provider_choice == "openai" else snapshot.provider_choice,
+    )
+    oauth = snapshot.oauth
+    table.add_row(
+        "OpenAI Codex OAuth",
+        (
+            "OK"
+            if oauth is not None and oauth.authenticated
+            else "NOT AUTHENTICATED"
+            if snapshot.oauth_store_available
+            else "UNAVAILABLE"
+        ),
+        (
+            f"ChatGPT OAuth; ChatGPT subscription; {oauth.token_state.value}; experimental"
+            if oauth is not None and oauth.configured
+            else "Run: netsage ai codex login; experimental compatibility"
+            if snapshot.oauth_store_available
+            else "Secure OS credential store unavailable"
+        ),
     )
     table.add_row(
-        "OpenAI API fallback",
-        api_status,
-        "selected only when Codex is absent",
+        "Existing Codex App Server",
+        (
+            "OK"
+            if snapshot.app_server.authenticated
+            else "NOT AUTHENTICATED"
+            if snapshot.app_server.installed
+            else "ABSENT"
+        ),
+        (
+            _codex_auth_details(snapshot.app_server)
+            if snapshot.app_server.installed
+            else "optional; Codex CLI is not required"
+        ),
+    )
+    table.add_row(
+        "OpenAI API",
+        "READY"
+        if snapshot.api_configured
+        else "NOT CONFIGURED"
+        if snapshot.api_store_available
+        else "UNAVAILABLE",
+        "API key; usage-based API; never receives Codex OAuth tokens",
     )
     console.print(table)
 
 
+def _set_provider_choice(state: LocalState, choice: AIProviderChoice) -> None:
+    document = state.settings.load()
+    state.settings.save(
+        document.model_copy(update={"ai": document.ai.model_copy(update={"provider": choice})})
+    )
+
+
+@ai_app.command("configure")
+def ai_configure(
+    provider: str = typer.Option(
+        ...,
+        "--provider",
+        help="auto|openai-codex|codex-app-server|openai-api",
+    ),
+) -> None:
+    """Select an explicit provider route or the visible auto-priority policy."""
+
+    if provider == "openai":
+        provider = "auto"
+    try:
+        choice = _PROVIDER_ADAPTER.validate_python(provider)
+        state = _state()
+        _set_provider_choice(state, choice)
+    except (StateError, ValueError) as error:
+        console.print(f"[red]{error}[/red]")
+        raise typer.Exit(code=1) from error
+    console.print(f"AI provider selection saved: {choice}")
+    console.print("No provider credential was written to YAML.")
+
+
+@codex_oauth_app.command("status")
+def codex_oauth_status() -> None:
+    """Show only secret-free native OAuth configuration and expiry state."""
+
+    try:
+        status = _codex_oauth_manager().status()
+    except CodexOAuthCredentialStoreError as error:
+        console.print("[red]Codex OAuth credential storage is unavailable.[/red]")
+        raise typer.Exit(code=1) from error
+    table = Table(title="NetSage OpenAI Codex OAuth status")
+    table.add_column("Area")
+    table.add_column("Status")
+    table.add_column("Details")
+    table.add_row("Provider", "EXPERIMENTAL", "ChatGPT/Codex OAuth compatibility")
+    table.add_row(
+        "Configured",
+        "YES" if status.configured else "NO",
+        "OS credential store" if status.configured else "Run: netsage ai codex login",
+    )
+    table.add_row(
+        "Authenticated",
+        "YES" if status.authenticated else "NO",
+        "ChatGPT OAuth" if status.configured else "not configured",
+    )
+    table.add_row("Token", status.token_state.value.upper(), "Token values are never displayed")
+    console.print(table)
+
+
+@codex_oauth_app.command("login")
+def codex_oauth_login(
+    no_browser: bool = typer.Option(
+        False,
+        "--no-browser",
+        help="Do not open the device-authorization page automatically.",
+    ),
+) -> None:
+    """Authenticate natively with ChatGPT; no Codex executable or API key required."""
+
+    console.print("ChatGPT / Codex authentication")
+    console.print(EXPERIMENTAL_COMPATIBILITY_NOTICE)
+    protocol = _codex_oauth_http_client()
+    store = _codex_oauth_store()
+    try:
+        authorization = asyncio.run(protocol.request_device_authorization())
+        user_code = authorization.user_code.get_secret_value()
+        console.print("Open:")
+        console.print(authorization.verification_url, markup=False)
+        console.print("Code:")
+        console.print(user_code, markup=False)
+        if not no_browser:
+            webbrowser.open(authorization.verification_url)
+        console.print("Waiting for authentication... Press Ctrl+C to cancel.")
+        tokens = asyncio.run(protocol.complete_device_authorization(authorization))
+        store.save(tokens)
+        state = _state()
+        _set_provider_choice(state, "openai-codex")
+    except KeyboardInterrupt as error:
+        console.print("Authentication cancelled. No credentials were stored.")
+        raise typer.Exit(code=130) from error
+    except CodexOAuthProtocolError as error:
+        console.print(f"[red]{error.code.value}:[/red] {error}")
+        raise typer.Exit(code=1) from error
+    except CodexOAuthCredentialStoreError as error:
+        console.print("[red]Codex OAuth credentials could not be stored securely.[/red]")
+        raise typer.Exit(code=1) from error
+    except StateError as error:
+        console.print(f"[red]{error}[/red]")
+        raise typer.Exit(code=1) from error
+    console.print("Authentication successful.")
+    console.print("Access and refresh tokens: OS credential store only.")
+
+
+@codex_oauth_app.command("logout")
+def codex_oauth_logout() -> None:
+    """Remove only NetSage-owned Codex OAuth credentials from its keyring domain."""
+
+    try:
+        _codex_oauth_store().delete(missing_ok=True)
+    except CodexOAuthCredentialStoreError as error:
+        console.print("[red]Codex OAuth credentials could not be removed.[/red]")
+        raise typer.Exit(code=1) from error
+    console.print("NetSage Codex OAuth authentication removed.")
+    console.print("Existing Codex CLI and browser sessions were not changed.")
+
+
+@codex_oauth_app.command("import-existing")
+def codex_oauth_import_existing() -> None:
+    """Explicitly copy compatible Codex auth.json tokens into NetSage keyring storage."""
+
+    store = _codex_oauth_store()
+    importer = CodexExistingAuthImporter(store)
+    if not importer.detected():
+        console.print("No compatible Codex auth file was detected.")
+        raise typer.Exit(code=1)
+    console.print("Existing Codex authentication detected.")
+    console.print("A separate native NetSage login is recommended to avoid refresh-token races.")
+    if not typer.confirm("Import into the NetSage OS credential store?", default=False):
+        console.print("Import cancelled. The source was not read or modified.")
+        return
+    try:
+        importer.import_file()
+        state = _state()
+        _set_provider_choice(state, "openai-codex")
+    except (CodexExistingAuthImportError, CodexOAuthCredentialStoreError) as error:
+        console.print("[red]Compatible Codex authentication could not be imported.[/red]")
+        raise typer.Exit(code=1) from error
+    except StateError as error:
+        console.print(f"[red]{error}[/red]")
+        raise typer.Exit(code=1) from error
+    console.print("Existing authentication imported into the NetSage OS credential store.")
+    console.print("The Codex source file was not modified.")
+
+
 @openai_app.command("status")
 def openai_status() -> None:
-    """Show direct OpenAI API fallback authentication and model status."""
+    """Show separate OpenAI API authentication and model status."""
 
     try:
         state = _state()
@@ -309,7 +590,7 @@ def openai_login(
     """Validate an API key and store it in the separate provider OS keyring."""
 
     console.print("OpenAI Provider Setup")
-    console.print("This configures the direct API fallback used when Codex is absent.")
+    console.print("This configures the separate usage-based OpenAI API provider.")
     console.print("Authentication uses an OpenAI API key stored separately by NetSage.")
     if not no_browser:
         console.print("Opening the official OpenAI API-key page.")
@@ -423,12 +704,16 @@ def openai_configure(
 
 
 def ask_device(device_id: str, question: str) -> None:
-    """Use installed Codex when present; otherwise use the direct OpenAI API."""
+    """Use the configured/visible auth route behind the same AgentRuntime."""
 
     try:
         state = _state()
+        document = state.settings.load()
+        settings = document.ai.openai
         selection = select_preferred_openai_provider(
-            _settings(state),
+            settings,
+            provider_choice=document.ai.provider,
+            codex_oauth_provider=_codex_oauth_provider(settings),
             codex_client=_codex_client(),
             api_keys=_api_keys(),
             openai_client=_client(),

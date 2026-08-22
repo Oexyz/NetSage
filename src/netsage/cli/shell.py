@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import shlex
-import shutil
 from collections.abc import Callable, Sequence
 
 import typer
@@ -13,7 +12,7 @@ from typer.main import get_command
 
 from netsage import __version__
 from netsage.inventory.store import InventoryStore
-from netsage.state import StateError, StatePaths
+from netsage.state import ApplicationSettingsStore, StateError, StatePaths
 
 InputReader = Callable[[str], str]
 
@@ -93,11 +92,19 @@ class NetSageInteractiveShell:
                 device_count = "unavailable"
         else:
             device_count = "0"
-        ai_runtime = "Codex" if shutil.which("codex") else "OpenAI API"
+        ai_runtime: str
+        if paths.settings.is_file():
+            try:
+                selected = ApplicationSettingsStore(paths).load().ai.provider
+                ai_runtime = "auto" if selected == "openai" else selected
+            except (OSError, StateError):
+                ai_runtime = "unavailable"
+        else:
+            ai_runtime = "not configured"
         self._console.print(f"NetSage {__version__}")
         self._console.print()
         self._console.print(f"FortiOS devices: {device_count}")
-        self._console.print(f"AI provider: {ai_runtime}")
+        self._console.print(f"AI provider selection: {ai_runtime}")
         self._console.print("Mode: Observe")
         self._console.print()
         self._console.print("Type 'help' for commands. Type 'exit' or 'quit' to leave.")
