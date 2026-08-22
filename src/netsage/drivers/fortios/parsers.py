@@ -57,6 +57,7 @@ def parse_device_facts(device_id: str, output: str) -> DeviceFacts:
     if not version_match:
         raise FortiOSParseError("FortiOS version format is unsupported")
     os_version = version_match.group("version")
+    build_match = re.search(r"(?i)\bbuild(?P<build>\d+)\b", version_text)
     model = _case_insensitive_value(values, "model")
     if not model:
         model = _case_insensitive_value(values, "platform")
@@ -74,11 +75,18 @@ def parse_device_facts(device_id: str, output: str) -> DeviceFacts:
         vendor="Fortinet",
         model=model,
         os_version=os_version,
+        os_build=int(build_match.group("build")) if build_match else None,
+        branch_point=_optional_integer(_case_insensitive_value(values, "branch point")),
+        release=_case_insensitive_value(values, "release version information"),
         hostname=_case_insensitive_value(values, "hostname"),
         operation_mode=_case_insensitive_value(values, "operation mode"),
         ha_mode=_case_insensitive_value(values, "current ha mode")
         or _case_insensitive_value(values, "ha mode"),
         vdom=_case_insensitive_value(values, "current virtual domain"),
+        vdom_configuration=_case_insensitive_value(values, "virtual domain configuration"),
+        max_vdoms=_optional_integer(
+            _case_insensitive_value(values, "max number of virtual domains")
+        ),
     )
 
 
@@ -121,6 +129,7 @@ def parse_interfaces(
                 speed_mbps=speed_mbps,
                 duplex=duplex,
                 mtu=int(mtu_values[0]) if mtu_values else None,
+                interface_type=_first(settings, "type"),
                 role=_first(settings, "role"),
                 parent_interface=_first(settings, "interface"),
                 addresses=addresses,
@@ -236,7 +245,7 @@ def parse_routes(device_id: str, output: str) -> tuple[Route, ...]:
                 distance=distance,
                 metric=metric,
                 vrf=vrf,
-                active=True,
+                active="inactive" not in rest.casefold(),
                 selected=selected,
             )
         )
@@ -319,7 +328,9 @@ def parse_firewall_policies(device_id: str, output: str) -> tuple[FirewallPolicy
                 services=settings.get("service", ()),
                 action=action,
                 enabled=_first(settings, "status") != "disable",
-                nat_enabled=_first(settings, "nat") == "enable",
+                nat_enabled=(
+                    _first(settings, "nat") == "enable" or _first(settings, "ippool") == "enable"
+                ),
                 log_traffic=_first(settings, "logtraffic"),
                 schedule=_first(settings, "schedule"),
                 comments=_first(settings, "comments"),
@@ -666,7 +677,14 @@ def _route_protocol(code: str) -> str:
         "E1": "ospf_external_1",
         "E2": "ospf_external_2",
         "i": "isis",
-    }.get(prefix, prefix.lower())
+    }.get(prefix, "unknown")
+
+
+def _optional_integer(value: str | None) -> int | None:
+    if value is None:
+        return None
+    match = re.search(r"\d+", value)
+    return int(match.group()) if match else None
 
 
 def _route_cost(rest: str) -> tuple[int | None, int | None]:

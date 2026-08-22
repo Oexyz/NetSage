@@ -1,0 +1,14 @@
+vd: root/0
+name: synthetic-ipv6-vpn
+version: 2
+interface: wan-v6 5
+addr: [2001:db8::10]:4500 -> [2001:db8::20]:4500
+created: 120s ago
+IKE SA: created 1/1 established 1/1 time 10/10/10 ms
+IPsec SA: created 2/2 established 2/2 time 20/20/20 ms
+nat: me peer
+status: established
+SK_ei: <REDACTED>
+SK_er: <REDACTED>
+SK_ai: <REDACTED>
+SK_ar: <REDACTED>

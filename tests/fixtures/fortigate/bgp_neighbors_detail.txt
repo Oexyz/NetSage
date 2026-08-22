@@ -1,0 +1,11 @@
+BGP neighbor is 198.51.100.10, remote AS 65001, local AS 65000, external link
+BGP state = Established, up for 01:02:03
+Received 25 messages, 0 notifications, 0 in queue
+Sent 30 messages, 0 notifications, 0 in queue
+For address family: IPv4 Unicast
+12 accepted prefixes
+8 announced prefixes
+
+BGP neighbor is 203.0.113.10, remote AS 65002, local AS 65000, external link
+BGP state = OpenConfirm
+For address family: IPv4 Unicast

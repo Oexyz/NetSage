@@ -1,0 +1,6 @@
+CPU states: 5% user 5% system 0% nice 90% idle 0% iowait 0% irq 0% softirq
+Memory: 8,000,000k total, 7,000,000k used (87.5%), 1,000,000k free (12.5%)
+Current sessions: 12,345 sessions
+Session limit: 100,000
+Memory conserve mode: active
+Uptime: 1 day, 2 hours, 3 minutes, 4 seconds

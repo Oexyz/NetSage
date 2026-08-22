@@ -1,0 +1,3 @@
+HA Health Status: OK
+Mode: standalone
+Group ID: 0

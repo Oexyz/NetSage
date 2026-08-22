@@ -38,6 +38,8 @@ from netsage.models import (
     SDWANHealthCheck,
     SDWANMember,
     SDWANStatus,
+    SemanticParserMetadata,
+    SemanticParserState,
     SystemHealth,
     TracerouteHop,
     TracerouteResult,
@@ -397,6 +399,49 @@ def test_factory_builds_typed_semantic_observability_payloads(
     )
     assert evidence.payload.kind == expected_kind
     assert evidence.trust is DataTrust.UNTRUSTED_DEVICE_DATA
+
+
+def test_semantic_parser_provenance_roundtrips_without_raw_commands() -> None:
+    status = HAStatus(
+        device_id="fortigate-lab",
+        parser=SemanticParserMetadata(
+            schema_version=2,
+            state=SemanticParserState.PARTIAL,
+            variant="ha-status-v2",
+            attempted_variants=("ha-status-v1", "ha-status-v2"),
+        ),
+    )
+    evidence = factory_for(EVIDENCE_ID_1).create(
+        investigation_id=INVESTIGATION_ID,
+        capability=Capability.HA,
+        platform=Platform.FORTIOS,
+        driver="SyntheticDriver",
+        result=CommandResult(
+            device="fortigate-lab",
+            operation="get_ha_status",
+            output={"result": status.model_dump(mode="json")},
+        ),
+    )
+
+    assert evidence.provenance.parser_schema_version == 2
+    assert evidence.provenance.parser_variant == "ha-status-v2"
+    assert evidence.provenance.parser_state is SemanticParserState.PARTIAL
+    assert "get system ha status" not in evidence.model_dump_json()
+
+
+def test_legacy_evidence_without_parser_provenance_remains_loadable() -> None:
+    evidence = create_interface_evidence(factory_for(EVIDENCE_ID_1))
+    legacy = evidence.model_dump(mode="json")
+    provenance = legacy["provenance"]
+    assert isinstance(provenance, dict)
+    provenance.pop("parser_schema_version")
+    provenance.pop("parser_variant")
+    provenance.pop("parser_state")
+
+    reloaded = EvidenceEnvelope.model_validate(legacy)
+
+    assert reloaded.provenance.parser_schema_version == 1
+    assert reloaded.provenance.parser_variant == "normalized-v1"
 
 
 def test_prompt_injection_remains_data_and_known_secret_is_redacted() -> None:

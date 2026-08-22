@@ -28,6 +28,28 @@ class HARole(StrEnum):
     UNKNOWN = "unknown"
 
 
+class FeatureState(StrEnum):
+    ENABLED = "enabled"
+    DISABLED = "disabled"
+    NOT_CONFIGURED = "not_configured"
+    UNKNOWN = "unknown"
+
+
+class SemanticParserState(StrEnum):
+    PARSED = "parsed"
+    PARTIAL = "partial"
+    UNRECOGNIZED = "unrecognized"
+
+
+class SemanticParserMetadata(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    schema_version: int = Field(default=1, ge=1)
+    state: SemanticParserState = SemanticParserState.PARSED
+    variant: str = Field(default="unspecified-v1", pattern=r"^[a-z0-9][a-z0-9_.-]{0,79}$")
+    attempted_variants: tuple[str, ...] = Field(default=(), max_length=3)
+
+
 class HASynchronizationState(StrEnum):
     IN_SYNC = "in_sync"
     OUT_OF_SYNC = "out_of_sync"
@@ -56,6 +78,8 @@ class HAStatus(BaseModel):
 
     device_id: str
     enabled: bool | None = None
+    feature_state: FeatureState = FeatureState.UNKNOWN
+    parser: SemanticParserMetadata = Field(default_factory=SemanticParserMetadata)
     mode: str | None = Field(default=None, max_length=80)
     group_name: str | None = Field(default=None, max_length=255)
     group_id: int | None = Field(default=None, ge=0)
@@ -110,6 +134,8 @@ class SDWANStatus(BaseModel):
 
     device_id: str
     enabled: bool | None = None
+    feature_state: FeatureState = FeatureState.UNKNOWN
+    parser: SemanticParserMetadata = Field(default_factory=SemanticParserMetadata)
     members: tuple[SDWANMember, ...] = Field(default=(), max_length=MAX_SDWAN_MEMBERS)
     health_checks: tuple[SDWANHealthCheck, ...] = Field(
         default=(), max_length=MAX_SDWAN_HEALTH_CHECKS
@@ -176,6 +202,8 @@ class IPsecStatus(BaseModel):
 
     device_id: str
     enabled: bool | None = None
+    feature_state: FeatureState = FeatureState.UNKNOWN
+    parser: SemanticParserMetadata = Field(default_factory=SemanticParserMetadata)
     phase1: tuple[IPsecPhase1, ...] = Field(default=(), max_length=MAX_IPSEC_PHASE1)
     tunnels: tuple[IPsecTunnel, ...] = Field(default=(), max_length=MAX_IPSEC_TUNNELS)
     truncated: bool = False
@@ -200,6 +228,7 @@ class BGPNeighbor(BaseModel):
     state: BGPSessionState = BGPSessionState.UNKNOWN
     uptime_seconds: int | None = Field(default=None, ge=0)
     prefixes_received: int | None = Field(default=None, ge=0)
+    prefixes_advertised: int | None = Field(default=None, ge=0)
     messages_received: int | None = Field(default=None, ge=0)
     messages_sent: int | None = Field(default=None, ge=0)
     address_family: str | None = Field(default=None, max_length=80)
@@ -210,6 +239,8 @@ class BGPStatus(BaseModel):
 
     device_id: str
     enabled: bool | None = None
+    feature_state: FeatureState = FeatureState.UNKNOWN
+    parser: SemanticParserMetadata = Field(default_factory=SemanticParserMetadata)
     router_id: IPvAnyAddress | None = None
     local_as: int | None = Field(default=None, ge=0, le=4_294_967_295)
     table_version: int | None = Field(default=None, ge=0)
@@ -248,6 +279,8 @@ class OSPFStatus(BaseModel):
 
     device_id: str
     enabled: bool | None = None
+    feature_state: FeatureState = FeatureState.UNKNOWN
+    parser: SemanticParserMetadata = Field(default_factory=SemanticParserMetadata)
     process_id: int | None = Field(default=None, ge=0)
     router_id: IPvAnyAddress | None = None
     neighbors: tuple[OSPFNeighbor, ...] = Field(default=(), max_length=MAX_ROUTING_NEIGHBORS)

@@ -22,12 +22,16 @@ _ANSI_ESCAPE = re.compile(r"\x1b(?:[@-_][0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b
 _PAGER_MARKER = re.compile(r"(?i)--\s*more\s*--")
 _PROMPT_PREFIX = r"(?:[^\s()#$]+(?:\s+\([^)]+\))?\s+)?[#$]"
 _PROMPT_LINE = re.compile(rf"^{_PROMPT_PREFIX}\s*$")
-_COMMAND_FAILURE = re.compile(
-    r"(?im)^(?:command fail\.?\s*return code|command failed|command fail|unknown action|"
-    r"parse error|not permission|no permissions?|not entitled to run the command|"
-    r"not permitted|not authorized|permission denied|command not found|"
-    r"insufficient permissions|failed because you have no rights|error:)\b"
+_PERMISSION_FAILURE = re.compile(
+    r"(?im)^(?:not permission|no permissions?|not entitled to run the command|"
+    r"not permitted|not authorized|permission denied|insufficient permissions|"
+    r"failed because you have no rights|.*\bno permissions?\b).*$"
 )
+_COMMAND_UNAVAILABLE = re.compile(
+    r"(?im)^(?:command fail\.?\s*return code|command failed|command fail|unknown action|"
+    r"parse error|command not found|object does not exist|not supported on this platform)\b"
+)
+_COMMAND_FAILURE = re.compile(r"(?im)^(?:error:|execution failed|invalid command)\b")
 
 
 class FortiOSTransportError(RuntimeError):
@@ -47,6 +51,18 @@ class FortiOSHostKeyError(FortiOSTransportError):
 
 
 class FortiOSCommandError(FortiOSTransportError):
+    pass
+
+
+class FortiOSPermissionDeniedError(FortiOSCommandError):
+    pass
+
+
+class FortiOSCommandUnavailableError(FortiOSCommandError):
+    pass
+
+
+class FortiOSCommandRejectedError(FortiOSCommandError):
     pass
 
 
@@ -202,8 +218,16 @@ class FortiOSSSHTransport:
             for command in rendered:
                 raw = await self._execute_command(connection, command)
                 sanitized = redactor.redact_text(raw)
+                if _PERMISSION_FAILURE.search(sanitized):
+                    raise FortiOSPermissionDeniedError(
+                        "FortiOS denied permission for an allowlisted command"
+                    )
+                if _COMMAND_UNAVAILABLE.search(sanitized):
+                    raise FortiOSCommandUnavailableError(
+                        "FortiOS does not expose an allowlisted command variant"
+                    )
                 if _COMMAND_FAILURE.search(sanitized):
-                    raise FortiOSCommandError("FortiOS rejected an allowlisted command")
+                    raise FortiOSCommandRejectedError("FortiOS rejected an allowlisted command")
                 outputs.append(_clean_shell_output(sanitized, command))
             return tuple(outputs)
         finally:

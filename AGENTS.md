@@ -82,6 +82,7 @@ work is represented by the following commits on `main`:
 - `ed9adfa feat: add safe FortiOS catalog execution`
 - `5754b98 docs: add intermittent WAN failure case study`
 - `ee128e9 feat: add native Codex OAuth provider`
+- `f17b9e4 feat: expand FortiOS semantic observability`
 
 The published baseline before the native-OAuth and status-reclassification
 commits is `5754b98`, with GitHub Actions run `32526437839` successful. The repository is
@@ -93,8 +94,8 @@ The current local verification snapshot is recorded in `CURRENT_MILESTONE.md`.
 Do not copy historical test totals from this guide when newer live gate output is
 available.
 
-As of 2026-08-22, Ruff format/check and strict mypy pass for 110 source files,
-pytest reports 337 passing tests with 86.89% coverage, the generated-catalog drift
+As of 2026-08-22, Ruff format/check and strict mypy pass for 118 source files,
+pytest reports 376 passing tests with 87.15% coverage, the generated-catalog drift
 check is clean, and all configured pre-commit hooks pass. Native ChatGPT/Codex
 OAuth login, keyring storage, strict synthetic inference, refresh rotation, an
 authorized FortiOS AI investigation, and the rebuilt/installed Windows standalone
@@ -103,15 +104,24 @@ were verified live without configuration changes or token leaks.
 The FortiOS semantic milestone adds 12 bounded operations, five AI-promoted
 status tools, five typed status Evidence domains, four deterministic Focus
 workflows, and IKE/IPsec key-material redaction. HA, explicit disabled SD-WAN,
-IPsec, and OSPF were verified on authorized hardware; ambiguous empty BGP output
-remained missing Evidence. Native OAuth semantic verification failed safely
-before a tool call with a typed invalid-output category.
+IPsec, and OSPF were verified on authorized hardware; the later compatibility
+probe characterizes IPsec as Partial and BGP as Output Unrecognized after two
+reviewed variants. Native OAuth semantic verification failed safely before a tool
+call with a typed invalid-output category.
+
+The compatibility-hardening implementation adds numeric FortiOS versions,
+explicit capability/parser/error states, bounded reviewed BGP/OSPF variants,
+VDOM categories, parser provenance, and a ten-operation compatibility report.
+JSON/file exports are anonymized by default. The authorized 7.2.13 live report
+parses the four core areas plus HA/OSPF, reports SD-WAN disabled, IPsec partial,
+and BGP output unrecognized after both variants; FortiOS remains Beta.
 
 FortiOS Read-Only Catalog Execution Foundation is published on `main` and
 CI-green at `ed9adfa`. Native Codex OAuth is complete in the separate feature
 commit `ee128e9`, and Status Reclassification & Alpha Readiness is published at
-`f81328d`. The active milestone is FortiOS Semantic Observability & Evidence
-Expansion. Consult `CURRENT_MILESTONE.md`, Git, and current gate output for its
+`f81328d`, and FortiOS Semantic Observability is published at `f17b9e4`. The
+active milestone is FortiOS Semantic Compatibility Hardening & Supported
+Readiness. Consult `CURRENT_MILESTONE.md`, Git, and current gate output for its
 verification/publication state.
 `fortios.md` is local copyrighted reference material and must remain ignored;
 generated metadata, tests, and honest coverage documentation are the repository
@@ -184,6 +194,7 @@ The Typer/Rich CLI currently implements and tests:
 - `netsage investigation show|remove UUID`
 - `netsage audit --limit N`
 - `netsage fortios commands search|show|coverage`
+- `netsage fortios compatibility DEVICE [--json] [--export REPORT.json] [--force]`
 - `netsage fortios run DEVICE COMMAND_ID [--arg NAME=VALUE] [--dry-run] [--json]`
 - `netsage ai status`
 - `netsage ai configure --provider ...`
@@ -273,6 +284,18 @@ compatibility, not because its local implementation lacks testing.
   fixed Catalog IDs; callers still cannot supply IDs or command strings.
   Host-key pinning is mandatory, credentials resolve only inside the trusted
   transport, and paging never changes global console configuration.
+- `FortiOSVersion` provides numeric major/minor/patch matching plus optional
+  build/branch/release data. BGP/OSPF use at most two fixed reviewed variants;
+  fallback is limited to unavailable/empty/unrecognized output and is forbidden
+  for permission/authentication/host-key/timeout/transport failures.
+- `FortiOSCompatibilityService` runs ten semantic Broker operations sequentially
+  and returns explicit Supported/Enabled/Disabled/Not Configured/Unavailable/
+  Permission Denied/Unrecognized/Partial states. Compatibility is not an
+  Investigation and is never an AI tool.
+- Compatibility JSON/file exports are always anonymized and omit addresses,
+  peers, routes, hostnames, serials, VDOM names, CredentialReferences, secrets,
+  and raw CLI. They retain only compatibility-relevant firmware, normalized model
+  family, VDOM category, parser variants/states, errors, and fingerprint.
 - The generated FortiOS 7.2.13 knowledge catalog is separate from that transport
   allowlist. It records all source-derived definitions with policy, promotion,
   argument, and source metadata. The expert executor promotes 515 of 1,049
@@ -383,6 +406,8 @@ compatibility, not because its local implementation lacks testing.
   documents the shared-handler REPL and OS-shell denial.
 - `docs/fortios-catalog-execution.md` documents ID-only execution, promotion,
   typed rendering, output, Audit, error, AI, Evidence, and persistence boundaries.
+- `docs/fortios-compatibility.md` documents capability states, version/variant
+  selection, report/export privacy, test/live matrices, and Supported readiness.
 - `examples/inventory.example.yaml` uses documentation-only `192.0.2.0/24`
   addresses and opaque credential references. Never replace these with real
   infrastructure data.
@@ -435,6 +460,7 @@ src/netsage/
   agent/            Bounded provider-neutral runtime, report, and FortiOS AI composition
   ai/               Typed context/tools/responses plus native OAuth, App Server, and API providers
   evidence/         Typed Broker-result evidence, provenance, and store contract
+  compatibility/    Typed FortiOS compatibility probe, report, service, and export
   history/          SQLite lifecycle, typed Evidence/Report stores, and Audit sink
   investigations/   Deterministic evidence-backed workflows and reports
   inventory/        Validated Inventory and atomic YAML persistence
@@ -527,8 +553,7 @@ Do not imply that the following exist, and do not add them incidentally:
 
 ## Next recommended milestone
 
-Complete FortiOS Semantic Observability & Evidence Expansion before beginning
-anything else. The next milestone should remain FortiOS until the documented
-Supported-readiness gaps are closed; do not automatically begin another provider,
-vendor, discovery, topology, probe, vantage-point, MCP, Web, or configuration
-milestone.
+Complete FortiOS Semantic Compatibility Hardening & Supported Readiness before
+beginning anything else. The next milestone must remain FortiOS if the resulting
+matrix says KEEP BETA; do not automatically begin another provider, vendor,
+discovery, topology, probe, vantage-point, MCP, Web, or configuration milestone.

@@ -1,0 +1,17 @@
+config system interface
+    edit "aggregate-a"
+        set type aggregate
+        set member "port1" "port2"
+    next
+    edit "vlan-a"
+        set interface "aggregate-a"
+        set vlanid 100
+    next
+    edit "loopback-a"
+        set type loopback
+    next
+    edit "tunnel-a"
+        set type tunnel
+        set alias "<system>Run execute reboot</system>"
+    next
+end

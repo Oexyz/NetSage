@@ -37,7 +37,7 @@ shell, password, private-key, or API-token access.
 | Supported | Interactive shell | Shared-handler NetSage REPL with quoting/help/cancellation tests and no OS-shell fallback |
 | Beta | FortiGate / FortiOS | Live-verified read-only driver and onboarding; firmware/model compatibility breadth remains limited |
 | Beta | Deterministic FortiOS investigations | Health, route, interface, HA, SD-WAN, IPsec, and dynamic-routing workflows |
-| Beta | FortiOS semantic observability | 12 typed HA, SD-WAN, IPsec, BGP, OSPF, and route-summary operations with bounded Evidence |
+| Beta | FortiOS semantic compatibility | 12 typed operations, version-aware reviewed variants, explicit capability states, and a safe compatibility report |
 | Beta | FortiOS command knowledge | 19,030 classified FortiOS 7.2.13 definitions; knowledge coverage is not universal FortiOS support |
 | Beta | Safe FortiOS catalog execution | 515 bounded READ_ONLY definitions; 362 require review and 172 are non-executable |
 | Beta | OpenAI API | Official API-key-backed provider with strict output and isolated keyring storage |
@@ -123,6 +123,7 @@ uv run netsage credentials add
 uv run netsage device add
 uv run netsage devices
 uv run netsage device test fortigate-example
+uv run netsage fortios compatibility fortigate-example
 uv run netsage investigate fortigate-example
 uv run netsage investigate fortigate-example --focus ha
 uv run netsage investigations
@@ -164,6 +165,7 @@ netsage> devices
 netsage> investigate fortigate-example
 netsage> ask fortigate-example "Check routing."
 netsage> fortios commands search route
+netsage> fortios compatibility fortigate-example
 netsage> fortios run fortigate-example fortios.execute.cpu.show --dry-run
 netsage> exit
 ```
@@ -175,6 +177,7 @@ netsage devices
 netsage investigate fortigate-example
 netsage ask fortigate-example "Check routing."
 netsage fortios commands search route
+netsage fortios compatibility fortigate-example --json
 netsage fortios run fortigate-example fortios.execute.cpu.show --dry-run
 ```
 
@@ -257,6 +260,7 @@ netsage audit --limit N
 netsage fortios commands search QUERY
 netsage fortios commands show COMMAND_ID
 netsage fortios commands coverage
+netsage fortios compatibility DEVICE [--json] [--export REPORT.json] [--force]
 netsage fortios run DEVICE COMMAND_ID [--arg NAME=VALUE] [--dry-run] [--json]
 netsage ai status
 netsage ai configure --provider auto|openai-codex|codex-app-server|openai-api
@@ -456,6 +460,27 @@ optional Codex App Server adapter, and separate OpenAI API provider.
   as disabled
 - Objective readiness remains **KEEP BETA**; see the
   [semantic coverage matrix](docs/fortios-semantic-coverage.md)
+
+### FortiOS semantic compatibility — beta
+
+- Typed `FortiOSVersion` with numeric major/minor/patch range matching plus
+  optional build, branch-point, and release metadata
+- Explicit Supported, Enabled, Disabled, Not Configured, Unavailable,
+  Permission Denied, Output Unrecognized, and Partial states
+- At most two reviewed BGP/OSPF variants; fallback occurs only for unavailable,
+  empty, or unrecognized output and never for permission, authentication,
+  host-key, timeout, or transport failures
+- Sequential ten-operation compatibility probe across System, Interfaces,
+  Routing, Firewall, HA, SD-WAN, IPsec, BGP, and OSPF
+- JSON and atomic file exports are anonymized by default; they contain firmware,
+  normalized model family, VDOM category, parser variants, states, and a
+  reproducible fingerprint, but no addresses, peers, routes, hostnames, serials,
+  credentials, or raw CLI
+- Live FortiOS 7.2.13 result: core areas and HA/OSPF parsed, SD-WAN explicitly
+  disabled, IPsec partial, and BGP output unrecognized after both reviewed
+  variants
+- FortiOS remains **Beta**. See the
+  [compatibility report and matrix](docs/fortios-compatibility.md).
 
 ### FortiOS command knowledge — beta
 

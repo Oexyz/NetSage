@@ -1,0 +1,4 @@
+Routing table for VRF=0
+S*      0.0.0.0/0 [10/0] via 192.0.2.1, wan-a
+S       0.0.0.0/0 [20/0] via 198.51.100.1, wan-b, inactive
+X       203.0.113.0/24 [1/1] via 192.0.2.2, wan-a

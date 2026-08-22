@@ -30,6 +30,7 @@ from netsage.models import (
     SDWANHealthCheck,
     SDWANMember,
     SDWANStatus,
+    SemanticParserState,
     SystemHealth,
     TracerouteResult,
 )
@@ -59,6 +60,12 @@ class EvidenceProvenance(BaseModel):
     platform: Platform
     driver: str = Field(min_length=1, max_length=128)
     collection_method: Literal["structured_broker_tool"] = "structured_broker_tool"
+    parser_schema_version: int = Field(default=1, ge=1)
+    parser_variant: str = Field(
+        default="normalized-v1",
+        pattern=r"^[a-z0-9][a-z0-9_.-]{0,79}$",
+    )
+    parser_state: SemanticParserState = SemanticParserState.PARSED
 
 
 class DeviceFactsEvidencePayload(BaseModel):

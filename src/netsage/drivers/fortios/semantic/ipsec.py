@@ -3,19 +3,23 @@
 import re
 from ipaddress import IPv4Network, IPv6Network, ip_network
 
-from netsage.drivers.fortios.parsers import FortiOSParseError
 from netsage.drivers.fortios.semantic.common import (
+    FortiOSSemanticErrorCategory,
+    FortiOSSemanticParseError,
     bounded_tuple,
     endpoint_address,
     parse_duration_seconds,
     require_recognizable_output,
 )
 from netsage.models import (
+    FeatureState,
     IPsecPhase1,
     IPsecPhase2,
     IPsecPhaseState,
     IPsecStatus,
     IPsecTunnel,
+    SemanticParserMetadata,
+    SemanticParserState,
 )
 from netsage.models.observability import (
     MAX_IPSEC_PHASE1,
@@ -23,17 +27,43 @@ from netsage.models.observability import (
     MAX_IPSEC_TUNNELS,
 )
 
-_DISABLED = re.compile(r"(?i)(?:ipsec|ike).*(?:not configured|disabled|not enabled)")
+_NOT_CONFIGURED = re.compile(r"(?i)(?:ipsec|ike).*(?:not configured|no configuration)")
+_DISABLED = re.compile(r"(?i)(?:ipsec|ike).*(?:disabled|not enabled|not running)")
 
 
-def parse_ipsec_status(device_id: str, phase1_output: str, tunnel_output: str) -> IPsecStatus:
+def parse_ipsec_status(
+    device_id: str,
+    phase1_output: str,
+    tunnel_output: str,
+    *,
+    variant: str = "ipsec-status-v1",
+) -> IPsecStatus:
     combined = "\n".join((phase1_output, tunnel_output)).strip()
     if not combined:
-        raise FortiOSParseError("FortiOS IPsec output was empty")
+        raise FortiOSSemanticParseError(
+            FortiOSSemanticErrorCategory.EMPTY_OUTPUT,
+            "FortiOS IPsec output was empty",
+        )
+    if _NOT_CONFIGURED.search(combined):
+        return IPsecStatus(
+            device_id=device_id,
+            enabled=False,
+            feature_state=FeatureState.NOT_CONFIGURED,
+            parser=_metadata(variant, partial=False),
+        )
     if _DISABLED.search(combined):
-        return IPsecStatus(device_id=device_id, enabled=False)
-    phase1_text = require_recognizable_output(phase1_output, "IKE gateway")
-    tunnel_text = require_recognizable_output(tunnel_output, "IPsec tunnel")
+        return IPsecStatus(
+            device_id=device_id,
+            enabled=False,
+            feature_state=FeatureState.DISABLED,
+            parser=_metadata(variant, partial=False),
+        )
+    phase1_text = (
+        require_recognizable_output(phase1_output, "IKE gateway") if phase1_output.strip() else ""
+    )
+    tunnel_text = (
+        require_recognizable_output(tunnel_output, "IPsec tunnel") if tunnel_output.strip() else ""
+    )
     phase1, phase1_truncated = bounded_tuple(
         _parse_phase1(device_id, phase1_text), MAX_IPSEC_PHASE1
     )
@@ -48,14 +78,38 @@ def parse_ipsec_status(device_id: str, phase1_output: str, tunnel_output: str) -
         or "ike sa:" in phase1_text.casefold()
     )
     if not recognized:
-        raise FortiOSParseError("FortiOS IPsec output was not recognized")
+        raise FortiOSSemanticParseError(
+            FortiOSSemanticErrorCategory.OUTPUT_UNRECOGNIZED,
+            "FortiOS IPsec output was not recognized",
+        )
     enabled = True if phase1 or tunnels else None
+    partial = (
+        enabled is None
+        or not phase1
+        or not tunnels
+        or any(item.state is IPsecPhaseState.UNKNOWN for item in phase1)
+        or any(
+            tunnel.phase1_state is IPsecPhaseState.UNKNOWN
+            or any(phase.state is IPsecPhaseState.UNKNOWN for phase in tunnel.phase2)
+            for tunnel in tunnels
+        )
+    )
     return IPsecStatus(
         device_id=device_id,
         enabled=enabled,
+        feature_state=FeatureState.ENABLED if enabled else FeatureState.UNKNOWN,
+        parser=_metadata(variant, partial=partial),
         phase1=phase1,
         tunnels=tunnels,
         truncated=phase1_truncated or tunnel_truncated or any(item.truncated for item in tunnels),
+    )
+
+
+def _metadata(variant: str, *, partial: bool) -> SemanticParserMetadata:
+    return SemanticParserMetadata(
+        state=SemanticParserState.PARTIAL if partial else SemanticParserState.PARSED,
+        variant=variant,
+        attempted_variants=(variant,),
     )
 
 

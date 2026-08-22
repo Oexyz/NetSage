@@ -12,6 +12,7 @@ netsage> investigate firewall-example
 netsage> ai codex login
 netsage> ai codex status
 netsage> ask firewall-example "Check routing."
+netsage> fortios compatibility firewall-example
 netsage> fortios run firewall-example fortios.execute.cpu.show --dry-run
 netsage> exit
 ```
@@ -24,6 +25,7 @@ netsage investigate firewall-example
 netsage ai codex login
 netsage ai codex status
 netsage ask firewall-example "Check routing."
+netsage fortios compatibility firewall-example --json
 netsage fortios run firewall-example fortios.execute.cpu.show --dry-run
 ```
 
@@ -36,6 +38,10 @@ netsage> investigate firewall-example --focus ha
 ```
 
 Valid focuses are `health`, `ha`, `sdwan`, `ipsec`, and `routing`.
+
+The compatibility command also shares its one-shot handler. It performs no
+network access until explicitly invoked; JSON/export output is anonymized by
+default and contains no raw CLI.
 
 ## Shared command implementation
 

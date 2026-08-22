@@ -3,18 +3,22 @@
 import re
 from dataclasses import dataclass
 
-from netsage.drivers.fortios.parsers import FortiOSParseError
 from netsage.drivers.fortios.semantic.common import (
+    FortiOSSemanticErrorCategory,
+    FortiOSSemanticParseError,
     bounded_tuple,
     parse_duration_seconds,
     require_recognizable_output,
 )
 from netsage.models import (
+    FeatureState,
     HAMember,
     HARole,
     HAStatus,
     HASynchronizationState,
     HealthStatus,
+    SemanticParserMetadata,
+    SemanticParserState,
 )
 from netsage.models.observability import MAX_HA_MEMBERS
 
@@ -32,13 +36,21 @@ class _MemberData:
     memory_percent: float | None = None
 
 
-def parse_ha_status(device_id: str, output: str) -> HAStatus:
+def parse_ha_status(
+    device_id: str,
+    output: str,
+    *,
+    variant: str = "ha-status-v1",
+) -> HAStatus:
     text = require_recognizable_output(output, "HA status")
     values = _top_level_values(text)
     health_text = values.get("ha health status")
     mode = values.get("mode")
     if health_text is None and mode is None and "configuration status:" not in text.casefold():
-        raise FortiOSParseError("FortiOS HA status output was not recognized")
+        raise FortiOSSemanticParseError(
+            FortiOSSemanticErrorCategory.OUTPUT_UNRECOGNIZED,
+            "FortiOS HA status output was not recognized",
+        )
 
     members: dict[str, _MemberData] = {}
     _parse_configuration_status(text, members)
@@ -58,13 +70,37 @@ def parse_ha_status(device_id: str, output: str) -> HAStatus:
         enabled = not any(word in normalized_mode for word in ("standalone", "disabled", "none"))
     elif normalized_members:
         enabled = True
+    feature_state = FeatureState.UNKNOWN
+    if enabled is True:
+        feature_state = FeatureState.ENABLED
+    elif enabled is False:
+        feature_state = FeatureState.DISABLED
+    health = _health(health_text)
+    partial = enabled is None or (
+        enabled is True
+        and (
+            not normalized_members
+            or health is HealthStatus.UNKNOWN
+            or any(
+                member.role is HARole.UNKNOWN
+                or member.synchronization is HASynchronizationState.UNKNOWN
+                for member in normalized_members
+            )
+        )
+    )
     return HAStatus(
         device_id=device_id,
         enabled=enabled,
+        feature_state=feature_state,
+        parser=SemanticParserMetadata(
+            state=(SemanticParserState.PARTIAL if partial else SemanticParserState.PARSED),
+            variant=variant,
+            attempted_variants=(variant,),
+        ),
         mode=mode,
         group_name=values.get("group name"),
         group_id=_integer(values.get("group id") or values.get("group")),
-        health=_health(health_text),
+        health=health,
         cluster_uptime_seconds=parse_duration_seconds(values.get("cluster uptime")),
         primary_member_id=primary,
         members=normalized_members,

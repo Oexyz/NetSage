@@ -3,4 +3,8 @@ Hostname: fortigate-lab
 Operation Mode: NAT
 Current HA mode: standalone
 Current virtual domain: root
+Max number of virtual domains: 10
+Virtual domain configuration: disable
+Branch point: 2702
+Release Version Information: Mature
 System time: Tue Aug 19 12:00:00 2026

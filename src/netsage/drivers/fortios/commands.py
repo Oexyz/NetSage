@@ -18,8 +18,10 @@ class FortiOSCommand(StrEnum):
     HA_STATUS = "ha_status"
     SDWAN_MEMBERS = "sdwan_members"
     BGP_SUMMARY = "bgp_summary"
+    BGP_NEIGHBORS = "bgp_neighbors"
     OSPF_STATUS = "ospf_status"
     OSPF_NEIGHBORS = "ospf_neighbors"
+    OSPF_NEIGHBORS_LEGACY = "ospf_neighbors_legacy"
     PING = "ping"
     TRACEROUTE = "traceroute"
 
@@ -43,8 +45,10 @@ class FortiOSRequest:
             FortiOSCommand.HA_STATUS: "get system ha status",
             FortiOSCommand.SDWAN_MEMBERS: "diagnose sys sdwan member",
             FortiOSCommand.BGP_SUMMARY: "get router info bgp summary",
+            FortiOSCommand.BGP_NEIGHBORS: "get router info bgp neighbors",
             FortiOSCommand.OSPF_STATUS: "get router info ospf status",
             FortiOSCommand.OSPF_NEIGHBORS: "get router info ospf neighbor all",
+            FortiOSCommand.OSPF_NEIGHBORS_LEGACY: "get router info ospf neighbor",
         }
         if self.command in fixed:
             if self.destination is not None:

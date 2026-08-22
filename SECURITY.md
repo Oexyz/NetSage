@@ -49,6 +49,22 @@ views fail when they cannot preserve truncation state. Feature/model/version
 differences become bounded collection failures, and ambiguous empty output is not
 converted into a fabricated disabled or healthy state.
 
+The FortiOS compatibility probe invokes only ten existing semantic Broker tools,
+sequentially. It never executes the 515 expert commands. BGP/OSPF have at most
+two reviewed variants; only command-unavailable, empty, or unrecognized output
+can trigger the second variant. Permission, authentication, host-key, timeout,
+output-limit, and transport failures stop fallback. No privilege escalation or
+generic VDOM context command exists.
+
+Terminal compatibility output may show the local logical Device ID. JSON and
+file exports are always anonymized and contain no management/interface/route/
+peer/neighbor/VPN address, hostname, serial, VDOM name, username,
+CredentialReference, device password, SSH key, OAuth token, OpenAI API key,
+IPsec key material, or raw CLI. The normalized model family and typed firmware
+are retained because they are the compatibility subject. Export uses restrictive
+same-directory temporary files and atomic replacement; existing files require
+explicit `--force`, and symbolic-link targets are refused.
+
 The interactive `netsage` prompt dispatches only registered commands through the
 same Typer tree as one-shot CLI calls. Unknown input is never forwarded to the
 operating system. NetSage uses no `os.system`, `shell=True`, or generic subprocess
@@ -181,6 +197,10 @@ CredentialReference, network password, SSH trust, raw CLI, CommandResult,
 Inventory, and History paths remain excluded. Raw App Server/SDK requests or
 responses, provider errors, hidden reasoning, tokens, API keys, and final AI
 assessments are not persisted.
+Compatibility reports are administrator/test metadata and are not added to
+AIContext or the AI tool catalog. The AI-visible FortiOS surface remains exactly
+the five comprehensive semantic status tools; focused and compatibility views
+remain AI-invisible.
 NetSage never reads browser sessions, cookies, or browser tokens. A compatible
 Codex `auth.json` can be copied into NetSage keyring storage only after explicit
 user confirmation; detection checks file presence only, import does not modify

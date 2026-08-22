@@ -1,121 +1,123 @@
-# Current Milestone: FortiOS Semantic Observability & Evidence Expansion
+# Current Milestone: FortiOS Semantic Compatibility Hardening & Supported Readiness
 
-Status: complete. Publication is valid only when the corresponding FortiOS
-feature commit is present on `main` and GitHub CI is green.
+Status: complete. Publication is valid only when the corresponding compatibility
+commit is present on `main` and GitHub CI is green.
 
 ## Published baseline
 
-- `ee128e9 feat: add native Codex OAuth provider` is published separately;
-- `f81328d docs: classify NetSage alpha feature maturity` is published and
-  CI-green;
+- `f17b9e4 feat: expand FortiOS semantic observability` is published on `main`;
+- GitHub Actions run `32566925327` is successful;
 - `fortios.md` and the original vendor PDF remain local, ignored, and
   unpublished.
 
 ## Goal
 
-Turn selected high-value FortiOS read-only observations into vendor-neutral,
-typed semantic data which can become bounded Evidence, deterministic findings,
-and explicitly reviewed AI tools.
+Make the existing FortiOS semantic surface robust across observable firmware,
+model, feature, VDOM, permission, command-availability, and output-shape
+differences. The milestone adds compatibility characterization, not more vendors,
+AI providers, arbitrary commands, diagnostics, or configuration behavior.
 
-Priority domains are:
+## Planned delivery
 
+- typed FortiOS firmware and compatibility-state models;
+- explicit enabled, disabled, not-configured, unavailable, permission-denied,
+  unrecognized, and partial states;
+- a maximum of two or three reviewed version-aware command variants per semantic
+  operation where a fallback is evidence-backed;
+- fallback only for command-unavailable or output-variant failures;
+- VDOM mode/context characterization without generic context changes;
+- a sequential, bounded `netsage fortios compatibility DEVICE` probe;
+- machine-readable JSON and atomic safe-by-default anonymized export;
+- parser provenance, variant matrices, privacy/security canaries, and
+  representative live verification.
+
+## Core compatibility areas
+
+- System facts and health;
+- Interfaces;
+- Routing;
+- Firewall policies;
 - HA;
 - SD-WAN;
 - IPsec;
 - BGP;
-- OSPF;
-- focused improvements to routes, interfaces, system health, and firewall
-  policy normalization where the available output is reliable.
+- OSPF.
 
-## Architectural decisions
+## Security decisions
 
-- semantic operations use fixed reviewed requests or trusted catalog IDs, never
-  caller-supplied command strings;
-- the existing host-key, credential, transport, timeout, paging, redaction,
-  Broker, Evidence, History, and Audit boundaries remain authoritative;
-- parsed device data remains `UNTRUSTED_DEVICE_DATA`;
-- collections are explicitly bounded and report truncation;
-- feature/model/firmware differences produce controlled missing Evidence rather
-  than fabricated empty support;
-- deterministic findings describe observed state and do not invent causes or
-  numerical confidence;
-- the 19,030-entry catalog and 515-command expert-execution subset remain a
-  separate regression surface and are not exposed wholesale to AI.
-
-## Planned semantic operations
-
-- comprehensive status: HA, SD-WAN, IPsec, BGP, and OSPF;
-- focused views: HA members, SD-WAN members and health checks, IPsec tunnels,
-  BGP and OSPF neighbors, and a normalized route summary;
-- deterministic investigations: HA health, SD-WAN health, IPsec health, and
-  dynamic-routing health;
-- AI visibility only for a small reviewed semantic subset.
-
-The exact operation count may change when source or live evidence shows that an
-operation cannot be implemented reliably. Quality and honest missing Evidence
-take precedence over an artificial target count.
+- compatibility uses existing semantic Broker tools and trusted runtime only;
+- no raw CLI, Credential, management address, peer address, route, neighbor,
+  interface address, serial number, hostname, or provider credential enters the
+  report/export;
+- exported reports are anonymized by default and contain only normalized model
+  family, typed firmware, VDOM category, parser/variant metadata, and capability
+  states;
+- no arbitrary fallback, AI-selected command, privilege escalation, context
+  configuration, or feature activation;
+- the AI tool surface remains the existing five comprehensive semantic tools;
+- catalog totals and the 515-command expert subset remain unchanged.
 
 ## Non-goals
 
-- no new vendor or hardware integration;
-- no new AI provider;
-- no raw or arbitrary CLI;
-- no configuration, destructive, or automatic-remediation surface;
-- no broad diagnostic promotion;
-- no bulk session dump or unbounded output;
-- no FortiOS Supported label promotion by documentation alone.
+- no FortiSwitch, Aruba, HPE, Cisco, Arista, Juniper, MikroTik, Palo Alto, or
+  other real driver;
+- no OAuth/provider refactor and no new AI provider;
+- no Discovery, scanning, Topology, Vantage Point, Probe, MCP, Web, Plan, Apply,
+  or remediation work;
+- no feature configuration for live tests;
+- no automatic FortiOS Supported promotion.
 
 ## Completion evidence required
 
-- typed models, parsers, Driver methods, capabilities, Broker tools, Evidence,
-  deterministic findings, persistence roundtrips, AI boundary tests, and safe
-  missing-Evidence behavior for implemented domains;
-- anonymized fixtures including variants, malformed/empty/unsupported output,
-  prompt-injection strings, and secret canaries;
-- unchanged catalog totals and safe-execution regression;
-- representative read-only live verification without configuring absent
-  features;
-- updated semantic coverage and Supported-readiness documentation;
-- Ruff format/check, strict mypy, pytest/coverage, pre-commit, secret/vendor
-  source checks, separate commit, push, and green GitHub CI.
-
-## FortiOS maturity
-
-FortiOS remains Beta. The objective recommendation is **KEEP BETA** because
-active SD-WAN, BGP-neighbor, OSPF-adjacency, broader IPsec, additional HA, and
-multi-model/firmware live matrices remain incomplete.
+- strongly typed report, variants, errors, firmware and capability states;
+- parser and compatibility matrix tests for every named domain and failure path;
+- JSON/export/REPL equivalence and privacy canaries;
+- existing History/Evidence and AI tool surface remain compatible;
+- authorized `device test` and compatibility probe run without configuration;
+- complete Ruff, strict mypy, pytest/coverage, pre-commit, catalog drift,
+  Markdown, secret/vendor-source, Git, push, and GitHub-CI verification;
+- objective `READY FOR SUPPORTED` or `KEEP BETA` decision backed by the resulting
+  compatibility matrix.
 
 ## Implementation delivered
 
-- 12 semantic operations: HA status/members; SD-WAN status/members/health
-  checks; IPsec status/tunnels; BGP status/neighbors; OSPF status/neighbors; and
-  route summary;
-- vendor-neutral bounded models and five comprehensive typed Evidence domains;
-- optional interface counters/errors/duplex/role/parent, system session/conserve
-  state, route active state, and firewall log-traffic normalization;
-- fixed source-traceable semantic Catalog-ID requests for SD-WAN health, IKE
-  gateway, and IPsec tunnel state without changing expert Catalog promotion;
-- four feature-aware deterministic workflows selected by `--focus` and shared by
-  one-shot CLI and REPL;
-- five AI-promoted comprehensive tools; focused semantic views and all Catalog
-  commands remain AI-invisible;
-- FortiOS IKE/IPsec key-material redaction before parsing;
-- `docs/fortios-semantic-coverage.md` with concrete coverage and Supported
-  readiness criteria.
+- `FortiOSVersion` with numeric range matching and optional build, branch point,
+  and release metadata;
+- explicit capability, parser, feature, error, VDOM-mode, and VDOM-context
+  states;
+- permission-denied, command-unavailable, and generic rejection transport
+  categories;
+- two reviewed, version-bounded variants each for BGP and OSPF with controlled
+  fallback only;
+- hardened System, Interface, Routing, Firewall, HA, SD-WAN, IPsec, BGP, and
+  OSPF parser variants;
+- parser schema/variant/state Evidence provenance with legacy loading defaults;
+- sequential ten-operation Broker-only compatibility probe;
+- typed report schema, reproduction fingerprint, anonymized JSON, atomic export,
+  overwrite confirmation, and symlink refusal;
+- one-shot and REPL `fortios compatibility` command;
+- `docs/fortios-compatibility.md` test/live/Supported-readiness matrices.
 
 ## Verification completed
 
-- 337 tests pass with 86.89% coverage;
-- Ruff format/check and strict mypy pass for 110 source files;
-- semantic parser variants cover healthy/degraded/down, malformed, reordered,
-  empty, unsupported, prompt-injection, secret, and truncation paths;
-- typed Evidence round-trips through SQLite schema version 1 without migration;
-- HA, explicit disabled SD-WAN, IPsec, and OSPF paths were verified on authorized
-  FortiOS 7.2.13 hardware without configuration or raw-output persistence;
-- empty live BGP output remains controlled missing Evidence rather than a false
-  disabled/healthy result;
-- a native OAuth semantic AI attempt failed safely before a tool call with
-  `CODEX_OAUTH_OUTPUT_INVALID`; deterministic and `FakeAIProvider` verification
-  remain green;
-- final catalog drift, pre-commit, Markdown, secret/vendor-source, Git, push, and
-  CI evidence are recorded by the completion report rather than assumed here.
+- 376 tests pass with 87.15% coverage;
+- Ruff format/check and strict mypy pass for 118 source files;
+- generated FortiOS catalog remains current at 19,030 definitions and 515 safe
+  expert executions;
+- 27 Markdown files have no broken internal links, fences, or tables;
+- authorized `device test` succeeds;
+- authorized anonymized compatibility report succeeds on FortiOS 7.2.13 in
+  single-VDOM/root context;
+- live states: System/Interfaces/Routing/Firewall Supported, HA/OSPF Enabled and
+  Parsed, SD-WAN Disabled and Parsed, IPsec Enabled and Partial, BGP Output
+  Unrecognized after both reviewed variants;
+- no feature was configured and no raw output was persisted;
+- final pre-commit, secret/vendor-source, Git, push, and CI evidence are recorded
+  by the completion report rather than assumed here.
+
+## Supported-readiness decision
+
+**KEEP BETA.** The compatibility architecture is robust and reproducible, but
+live BGP remains unrecognized, IPsec remains Partial, and active SD-WAN,
+OSPF-adjacency, multi-VDOM, restricted-permission, additional model, and
+additional firmware reports remain unavailable.

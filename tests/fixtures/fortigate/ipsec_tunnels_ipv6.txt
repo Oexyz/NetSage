@@ -1,0 +1,10 @@
+list all ipsec tunnel in vd 0
+name=synthetic-ipv6-vpn ver=2 serial=7 [2001:db8::10]:0->[2001:db8::20]:0
+stat: rxp=10 txp=20 rxb=1000 txb=2000
+natt: mode=active draft=0 interval=0 remote_port=4500
+proxyid=selector-a proto=0 sa=1 ref=2
+src: 0:2001:db8:1::/64:0
+dst: 0:2001:db8:2::/64:0
+proxyid=selector-b proto=0 sa=1 ref=2
+src: 0:2001:db8:3::/64:0
+dst: 0:2001:db8:4::/64:0

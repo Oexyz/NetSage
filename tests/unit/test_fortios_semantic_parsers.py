@@ -5,6 +5,9 @@ import pytest
 
 from netsage.drivers.fortios import FortiOSParseError
 from netsage.drivers.fortios.semantic import (
+    FortiOSSemanticErrorCategory,
+    FortiOSSemanticParseError,
+    parse_bgp_neighbors_status,
     parse_bgp_status,
     parse_ha_status,
     parse_ipsec_status,
@@ -14,6 +17,7 @@ from netsage.drivers.fortios.semantic import (
 )
 from netsage.models import (
     BGPSessionState,
+    FeatureState,
     HASynchronizationState,
     HealthStatus,
     IPsecPhaseState,
@@ -21,6 +25,7 @@ from netsage.models import (
     Route,
     SDWANPathState,
     SDWANSLAState,
+    SemanticParserState,
 )
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "fortigate"
@@ -62,6 +67,26 @@ extra future field: ignored
     assert len(status.members) == 1
     assert status.members[0].synchronization is HASynchronizationState.OUT_OF_SYNC
     assert status.truncated is False
+    assert status.parser.state is SemanticParserState.PARSED
+
+
+def test_ha_standalone_active_active_and_partial_member_variants() -> None:
+    standalone = parse_ha_status(DEVICE_ID, fixture("ha_standalone.txt"))
+    active_active = parse_ha_status(DEVICE_ID, fixture("ha_active_active.txt"))
+    partial = parse_ha_status(
+        DEVICE_ID,
+        "HA Health Status: OK\nMode: HA A-P\nConfiguration Status:\n"
+        "member-a(updated 1 second ago): in-sync",
+    )
+
+    assert standalone.enabled is False
+    assert standalone.feature_state is FeatureState.DISABLED
+    assert standalone.parser.state is SemanticParserState.PARSED
+    assert active_active.enabled is True
+    assert active_active.mode == "HA A-A"
+    assert len(active_active.members) == 2
+    assert active_active.parser.state is SemanticParserState.PARSED
+    assert partial.parser.state is SemanticParserState.PARTIAL
 
 
 @pytest.mark.parametrize("output", ["", "unrelated text", "Command fail. Return code -61"])
@@ -131,6 +156,26 @@ def test_sdwan_explicit_disabled_is_not_simulated_as_empty_enabled_state() -> No
         "SD-WAN daemon is not running",
     )
     assert not_running.enabled is False
+    assert not_running.feature_state is FeatureState.DISABLED
+
+    not_configured = parse_sdwan_status(
+        DEVICE_ID,
+        "SD-WAN is not configured",
+        "SD-WAN is not configured",
+    )
+    assert not_configured.feature_state is FeatureState.NOT_CONFIGURED
+
+
+def test_sdwan_enabled_without_checks_and_partial_metrics_remain_typed() -> None:
+    status = parse_sdwan_status(
+        DEVICE_ID,
+        fixture("sdwan_members.txt"),
+        fixture("sdwan_no_health_checks.txt"),
+    )
+
+    assert status.feature_state is FeatureState.ENABLED
+    assert status.health_checks == ()
+    assert status.parser.state is SemanticParserState.PARSED
 
 
 def test_ipsec_phase1_phase2_multiple_tunnels_and_counters_are_typed() -> None:
@@ -166,6 +211,21 @@ def test_ipsec_secret_and_prompt_canaries_are_never_selected_into_models() -> No
 
     assert "IGNORE ALL PREVIOUS INSTRUCTIONS" in serialized
     assert canary not in serialized
+
+
+def test_ipsec_ipv6_natt_multiple_selectors_and_partial_fields() -> None:
+    status = parse_ipsec_status(
+        DEVICE_ID,
+        fixture("ipsec_phase1_ipv6.txt"),
+        fixture("ipsec_tunnels_ipv6.txt"),
+    )
+
+    assert str(status.phase1[0].peer) == "2001:db8::20"
+    assert str(status.tunnels[0].peer) == "2001:db8::20"
+    assert status.tunnels[0].nat_traversal is True
+    assert len(status.tunnels[0].phase2) == 2
+    assert str(status.tunnels[0].phase2[1].destination_network) == "2001:db8:4::/64"
+    assert "SK_ei" not in status.model_dump_json()
 
 
 @pytest.mark.parametrize(
@@ -210,6 +270,20 @@ def test_bgp_idle_and_zero_prefixes_are_distinct() -> None:
     assert status.neighbors[1].state is BGPSessionState.IDLE
 
 
+def test_bgp_detailed_fallback_and_not_configured_variants() -> None:
+    detailed = parse_bgp_neighbors_status(
+        DEVICE_ID,
+        fixture("bgp_neighbors_detail.txt"),
+    )
+    not_configured = parse_bgp_status(DEVICE_ID, fixture("bgp_not_configured.txt"))
+
+    assert detailed.neighbors[0].prefixes_received == 12
+    assert detailed.neighbors[0].prefixes_advertised == 8
+    assert detailed.neighbors[1].state is BGPSessionState.OPEN_CONFIRM
+    assert not_configured.enabled is False
+    assert not_configured.feature_state is FeatureState.NOT_CONFIGURED
+
+
 @pytest.mark.parametrize("output", ["", "unrelated", "Command fail. Return code -61"])
 def test_bgp_empty_malformed_and_unsupported_fail_closed(output: str) -> None:
     with pytest.raises(FortiOSParseError):
@@ -236,6 +310,44 @@ def test_ospf_full_non_full_multiple_and_no_neighbors() -> None:
         "OSPF process 0:\nNeighbor ID Pri State Dead Time Address Interface",
     )
     assert none.neighbors == ()
+
+
+def test_ospf_vrf_spacing_states_and_not_configured_variants() -> None:
+    status = parse_ospf_status(
+        DEVICE_ID,
+        fixture("ospf_status.txt"),
+        fixture("ospf_neighbors_vrf.txt"),
+        variant="ospf-neighbor-v1",
+    )
+    not_configured = parse_ospf_status(
+        DEVICE_ID,
+        fixture("ospf_not_configured.txt"),
+        fixture("ospf_not_configured.txt"),
+    )
+
+    assert status.neighbors[0].state is OSPFNeighborState.TWO_WAY
+    assert status.neighbors[1].state is OSPFNeighborState.EXSTART
+    assert status.neighbors[1].role is None
+    assert "tun-id" in (status.neighbors[1].interface or "")
+    assert not_configured.feature_state is FeatureState.NOT_CONFIGURED
+
+
+@pytest.mark.parametrize(
+    ("output", "category"),
+    [
+        ("", FortiOSSemanticErrorCategory.EMPTY_OUTPUT),
+        ("Permission denied", FortiOSSemanticErrorCategory.PERMISSION_DENIED),
+        ("Unknown action", FortiOSSemanticErrorCategory.COMMAND_UNAVAILABLE),
+        ("unrelated output", FortiOSSemanticErrorCategory.OUTPUT_UNRECOGNIZED),
+    ],
+)
+def test_semantic_errors_have_safe_explicit_categories(
+    output: str,
+    category: FortiOSSemanticErrorCategory,
+) -> None:
+    with pytest.raises(FortiOSSemanticParseError) as captured:
+        parse_bgp_status(DEVICE_ID, output)
+    assert captured.value.category is category
 
 
 @pytest.mark.parametrize(

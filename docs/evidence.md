@@ -24,6 +24,11 @@ classification, typed payload, and non-secret provenance. Device evidence always
 retains `UNTRUSTED_DEVICE_DATA`; normalization never turns device-controlled text
 into instructions.
 
+Provenance now also records the semantic parser schema version, selected parser
+variant, and Parsed/Partial state. It never records the rendered FortiOS command
+or raw output. Defaults preserve loading of Evidence written before these fields
+were introduced.
+
 ## Typed payloads
 
 The payload is a discriminated union rather than arbitrary JSON. The current
@@ -83,3 +88,8 @@ Normal stored Device investigations persist the same typed envelopes through
 capture storage remains intentionally unimplemented. The semantic expansion uses
 the existing History schema: older Evidence variants remain loadable, and the
 new discriminators round-trip without a database migration.
+
+The administrator-facing FortiOS compatibility report is intentionally not
+Evidence and is not persisted in Investigation History. It characterizes parser
+and capability availability without making a health finding or entering AI
+context.

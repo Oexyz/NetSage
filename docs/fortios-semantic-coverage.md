@@ -18,9 +18,9 @@ denominator.
 | Firewall | Enriched `get_firewall_policies` | Direction, addresses, service, action, NAT, schedule, enabled and log-traffic state | Existing policy-presence/state analysis | Existing policy collection verified |
 | HA | `get_ha_status`, `get_ha_members` | Mode, health, synchronization and bounded members | Healthy, degraded, out-of-sync, low observed member count | Status, members and synchronization verified |
 | SD-WAN | `get_sdwan_status`, `get_sdwan_members`, `get_sdwan_health_checks` | Bounded members, health-check paths, FortiOS-reported SLA state and metrics | Dead path, explicit SLA failure, no alive path, healthy alternative | Explicit not-running state verified; active paths not available on target |
-| IPsec | `get_ipsec_status`, `get_ipsec_tunnels` | Bounded Phase 1, Phase 2, peers, SA state and counters; no key material | Phase 1 down, Phase 2 absent, established state and interface correlation | Multiple live tunnels verified without exposing identities |
-| BGP | `get_bgp_status`, `get_bgp_neighbors` | Router/local-AS and bounded neighbor summary | Not established, idle/active, zero prefixes and no neighbors | Target returned ambiguous empty summary; recorded as missing Evidence |
-| OSPF | `get_ospf_status`, `get_ospf_neighbors` | Process identity and bounded neighbors | FULL, non-FULL and no neighbors | Process status verified; no live neighbors available |
+| IPsec | `get_ipsec_status`, `get_ipsec_tunnels` | Bounded Phase 1, Phase 2, peers, SA state and counters; no key material | Phase 1 down, Phase 2 absent, established state and interface correlation | Enabled live; parser state partial |
+| BGP | `get_bgp_status`, `get_bgp_neighbors` | Router/local-AS and bounded summary/detailed neighbors | Not established, all FSM states, zero/missing received/advertised prefixes | Two reviewed live variants exhausted; output unrecognized |
+| OSPF | `get_ospf_status`, `get_ospf_neighbors` | Process identity and bounded neighbors | Full OSPF FSM state set and no-neighbor observation | Process enabled/parsed live; no adjacency available |
 
 Twelve semantic operations were added in this milestone. Five comprehensive
 status operations are AI-promoted: HA, SD-WAN, IPsec, BGP, and OSPF. Focused
@@ -38,9 +38,16 @@ in the AI catalog.
   limit. Focused views fail with a controlled incomplete-collection error rather
   than silently dropping that flag.
 - Explicit FortiOS disabled/not-running messages become `enabled=false`.
+- Explicit Disabled and Not Configured are distinct `FeatureState` values.
 - Empty or unrecognized output remains missing Evidence when it is ambiguous.
 - A model-, version-, permission-, VDOM-, or license-specific command rejection
   becomes a bounded collection failure, not a fabricated empty result.
+- Parser provenance records schema, selected variant, attempted variants, and
+  Parsed/Partial state without storing a command string.
+
+The administrator-facing
+[compatibility probe and matrix](fortios-compatibility.md) characterize these
+states without creating Investigation findings or adding data to AI context.
 
 Three read-only commands reuse trusted generated catalog IDs behind a fixed
 semantic enum: SD-WAN health checks, IKE gateway status, and IPsec tunnel status.
@@ -72,7 +79,8 @@ it is not counted as successful live AI verification.
 
 ## FortiOS Supported Readiness
 
-Recommendation: **KEEP BETA**.
+Recommendation: **KEEP BETA**. The detailed objective matrix is maintained in
+[FortiOS compatibility](fortios-compatibility.md).
 
 The following criteria are substantially implemented:
 

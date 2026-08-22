@@ -40,8 +40,10 @@ bounded to the live operation.
 | IPsec Phase 1 | Trusted Catalog ID | Read-only semantic promotion |
 | IPsec tunnels / Phase 2 | Trusted Catalog ID | Read-only semantic promotion |
 | BGP summary | `get router info bgp summary` | Read-only |
+| BGP detailed fallback | `get router info bgp neighbors` | Reviewed read-only variant |
 | OSPF process | `get router info ospf status` | Read-only |
 | OSPF neighbors | `get router info ospf neighbor all` | Read-only |
+| OSPF legacy neighbors | `get router info ospf neighbor` | Reviewed read-only variant |
 | Ping | `execute ping <validated-IP>` | Diagnostic |
 | Traceroute | `execute traceroute <validated-IP>` | Diagnostic |
 
@@ -77,6 +79,19 @@ safe typed query for the domain. They do not claim that the feature is configure
 on a particular appliance. Each status model carries `enabled=true`,
 `enabled=false`, or an honest unknown/missing-Evidence outcome based on the
 actual response.
+
+`FortiOSVersion` parses major/minor/patch numerically plus optional build,
+branch-point, and release metadata. BGP and OSPF select from at most two reviewed
+variants in the conservative reference-validated 7.0 through 7.6 range. Empty,
+unavailable, or
+unrecognized output may advance once; permission, authentication, host-key,
+timeout, output-limit, and transport failures never trigger a fallback. An
+unreviewed future firmware range fails closed without trying a random command.
+
+The Driver and parser layer distinguish explicit Enabled, Disabled, Not
+Configured, Unknown, Parsed, Partial, and Unrecognized states. Permission denial
+and command unavailability are separate transport exceptions rather than one
+generic command failure.
 
 Inspect the local catalog without connecting to a device:
 
@@ -131,9 +146,19 @@ and is never selected into a normalized model.
 
 The complete passive snapshot and representative HA, disabled SD-WAN, IPsec, and
 OSPF semantic paths have been verified against an authorized FortiOS 7.2.13
-device. BGP returned ambiguous empty output and correctly became missing
-Evidence. No device hostname, address, serial number, credential, peer, interface,
+device. The compatibility probe reports IPsec Partial and BGP Output Unrecognized
+after both reviewed variants; neither becomes a false healthy/disabled result.
+No device hostname, address, serial number, credential, peer, interface,
 or raw capture from that verification is stored in the repository.
+
+### Compatibility probe
+
+`netsage fortios compatibility DEVICE` runs ten existing semantic Broker tools
+sequentially. It does not use the expert catalog and does not create
+Investigation findings. JSON/file reports are anonymized by default and contain
+only typed firmware/model-family/VDOM categories, parser variants, capability
+states, safe error categories, and a reproduction fingerprint. See
+[FortiOS compatibility](fortios-compatibility.md).
 
 ### Data flow
 

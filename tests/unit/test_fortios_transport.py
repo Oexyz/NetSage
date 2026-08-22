@@ -12,6 +12,8 @@ from netsage.drivers.fortios import (
     FortiOSAuthenticationError,
     FortiOSCommand,
     FortiOSCommandError,
+    FortiOSCommandUnavailableError,
+    FortiOSPermissionDeniedError,
     FortiOSRequest,
     FortiOSSemanticCommand,
     FortiOSSemanticRequest,
@@ -177,7 +179,7 @@ async def test_transport_turns_device_rejection_into_bounded_error(
     transport = FortiOSSSHTransport(
         make_device(), provider, known_hosts_data=b"synthetic known host"
     )
-    with pytest.raises(FortiOSCommandError, match="rejected") as captured:
+    with pytest.raises(FortiOSCommandUnavailableError, match="variant") as captured:
         await transport.execute((FortiOSRequest(FortiOSCommand.SYSTEM_STATUS),))
     assert "-37" not in str(captured.value)
 
@@ -255,7 +257,7 @@ async def test_transport_flags_denied_commands(monkeypatch: pytest.MonkeyPatch) 
         Credential(username="readonly", secret="test-" + "only", kind=CredentialKind.PASSWORD),
     )
     transport = FortiOSSSHTransport(make_device(), provider, known_hosts_data=b"known")
-    with pytest.raises(FortiOSCommandError, match="rejected"):
+    with pytest.raises(FortiOSPermissionDeniedError, match="permission"):
         await transport.execute((FortiOSRequest(FortiOSCommand.SYSTEM_STATUS),))
 
 

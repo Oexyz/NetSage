@@ -82,7 +82,14 @@ Key material is neither parsed nor persisted.
 Collects BGP and OSPF only for the explicit routing focus. It reports BGP
 non-established state, established peers with zero received prefixes, OSPF
 neighbors that are not FULL, and enabled processes with no observed neighbors.
-Empty BGP summary output remains missing Evidence because it can be ambiguous.
+Empty BGP summary output can trigger the one reviewed detailed-neighbor variant;
+if neither output is recognizable, BGP remains missing Evidence because the
+state is ambiguous.
+
+The underlying BGP/OSPF Driver may try one additional reviewed output variant
+only after command-unavailable, empty, or unrecognized output. Permission,
+authentication, host-key, timeout, and transport failures remain missing Evidence
+immediately. Investigations do not select commands or compatibility variants.
 
 ## Partial evidence
 
@@ -144,6 +151,14 @@ summary; the routing workflow retained OSPF Evidence and reported BGP as missing
 The native OAuth semantic-tool verification was attempted but failed safely
 before a tool call with a typed provider-output error, so automated semantic AI
 verification continues to rely on `FakeAIProvider`.
+
+## Compatibility is separate
+
+`netsage fortios compatibility DEVICE` reports whether NetSage can observe each
+semantic area. It creates no Finding or Diagnosis and does not enter
+Investigation History or AI context. A feature can therefore be compatibility
+`ENABLED` while an Investigation independently reports healthy, degraded, or
+insufficient operational Evidence.
 
 Stored Device-ID investigations now persist sanitized Report, Evidence, and safe
 Audit metadata locally by default. `netsage investigations` and

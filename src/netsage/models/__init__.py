@@ -32,6 +32,7 @@ from netsage.models.observability import (
     BGPNeighbor,
     BGPSessionState,
     BGPStatus,
+    FeatureState,
     HAMember,
     HARole,
     HAStatus,
@@ -50,6 +51,8 @@ from netsage.models.observability import (
     SDWANPathState,
     SDWANSLAState,
     SDWANStatus,
+    SemanticParserMetadata,
+    SemanticParserState,
 )
 
 __all__ = [
@@ -66,6 +69,7 @@ __all__ = [
     "DataTrust",
     "DeviceFacts",
     "DeviceRef",
+    "FeatureState",
     "FirewallAction",
     "FirewallPolicy",
     "HAMember",
@@ -97,6 +101,8 @@ __all__ = [
     "SDWANPathState",
     "SDWANSLAState",
     "SDWANStatus",
+    "SemanticParserMetadata",
+    "SemanticParserState",
     "SystemHealth",
     "TracerouteHop",
     "TracerouteResult",

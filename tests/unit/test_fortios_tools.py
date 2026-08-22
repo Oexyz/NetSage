@@ -114,6 +114,7 @@ async def test_fortios_tools_return_normalized_untrusted_results_and_audit() -> 
     } <= ai_tools
     assert "get_ha_members" not in ai_tools
     assert "get_route_summary" not in ai_tools
+    assert all("compatibility" not in name for name in ai_tools)
 
 
 @pytest.mark.asyncio

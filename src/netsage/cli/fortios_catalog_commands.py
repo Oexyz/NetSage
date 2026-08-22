@@ -8,6 +8,7 @@ from pydantic import JsonValue
 from rich.console import Console
 from rich.table import Table
 
+from netsage.cli.fortios_compatibility_commands import register_compatibility_command
 from netsage.credentials import CredentialStoreError, KeyringSecretStore
 from netsage.drivers.fortios import FortiOSTransportError
 from netsage.drivers.fortios.catalog import (
@@ -35,7 +36,7 @@ from netsage.state import (
 console = Console()
 fortios_app = typer.Typer(
     name="fortios",
-    help="Inspect the generated FortiOS CLI knowledge catalog without device access.",
+    help="Inspect FortiOS catalog metadata and run bounded semantic compatibility checks.",
     no_args_is_help=True,
 )
 commands_app = typer.Typer(
@@ -44,6 +45,7 @@ commands_app = typer.Typer(
     no_args_is_help=True,
 )
 fortios_app.add_typer(commands_app)
+register_compatibility_command(fortios_app)
 
 
 def _registry() -> FortiOSCommandRegistry:

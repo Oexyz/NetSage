@@ -149,10 +149,15 @@ class DeviceFacts(BaseModel):
     vendor: str
     model: str
     os_version: str
+    os_build: int | None = Field(default=None, ge=0)
+    branch_point: int | None = Field(default=None, ge=0)
+    release: str | None = None
     hostname: str | None = None
     operation_mode: str | None = None
     ha_mode: str | None = None
     vdom: str | None = None
+    vdom_configuration: str | None = None
+    max_vdoms: int | None = Field(default=None, ge=0)
 
 
 class InterfaceErrors(BaseModel):
@@ -188,6 +193,7 @@ class Interface(BaseModel):
     speed_mbps: int | None = Field(default=None, gt=0)
     duplex: InterfaceDuplex = InterfaceDuplex.UNKNOWN
     mtu: int | None = Field(default=None, ge=576)
+    interface_type: str | None = None
     role: str | None = None
     parent_interface: str | None = None
     addresses: tuple[IPvAnyInterface, ...] = ()

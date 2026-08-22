@@ -1,0 +1,1 @@
+No health checks configured for SD-WAN.

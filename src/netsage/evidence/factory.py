@@ -56,6 +56,8 @@ from netsage.models import (
     SDWANHealthCheck,
     SDWANMember,
     SDWANStatus,
+    SemanticParserMetadata,
+    SemanticParserState,
     SystemHealth,
     TracerouteResult,
 )
@@ -147,12 +149,16 @@ class EvidenceFactory:
             )
         sanitized = _JSON_MAPPING.validate_python(self._redactor.redact(result.output))
         payload = self._payload(result.operation, sanitized)
+        parser_schema, parser_variant, parser_state = _parser_metadata(payload)
         provenance = EvidenceProvenance(
             tool=result.operation,
             device_id=result.device,
             capability=capability,
             platform=platform,
             driver=driver,
+            parser_schema_version=parser_schema,
+            parser_variant=parser_variant,
+            parser_state=parser_state,
         )
         return EvidenceEnvelope(
             evidence_id=self._evidence_id_factory(),
@@ -211,3 +217,22 @@ class EvidenceFactory:
         if operation == "get_route_summary":
             return RouteSummaryEvidencePayload(summary=_one(output, RouteSummary))
         raise UnsupportedEvidenceOperationError("operation has no evidence payload type")
+
+
+def _parser_metadata(
+    payload: EvidencePayload,
+) -> tuple[int, str, SemanticParserState]:
+    parser: SemanticParserMetadata | None = None
+    if isinstance(payload, HAStatusEvidencePayload):
+        parser = payload.status.parser
+    elif isinstance(payload, SDWANStatusEvidencePayload):
+        parser = payload.status.parser
+    elif isinstance(payload, IPsecStatusEvidencePayload):
+        parser = payload.status.parser
+    elif isinstance(payload, BGPStatusEvidencePayload):
+        parser = payload.status.parser
+    elif isinstance(payload, OSPFStatusEvidencePayload):
+        parser = payload.status.parser
+    if parser is None:
+        return 1, "normalized-v1", SemanticParserState.PARSED
+    return parser.schema_version, parser.variant, parser.state
