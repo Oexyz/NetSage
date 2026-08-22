@@ -37,12 +37,20 @@ and discarded after terminal/JSON delivery. Only stable command ID, safe named
 arguments, decision, result category, and duration enter Audit; output never
 enters Evidence, History, logs, or AI context.
 
-The semantic FortiOS layer is a separate reviewed surface. Twelve typed
+The semantic FortiOS layer is a separate reviewed surface. Fourteen typed
 operations cover HA, SD-WAN, IPsec, BGP, OSPF, and route summary; five
-comprehensive status operations are AI-visible. Three source-traceable commands
+comprehensive status operations are AI-visible. Five source-traceable commands
 use fixed Catalog IDs behind an argument-free enum, while the remaining commands
 use the closed Driver request enum. No caller can supply a rendered command or
 Catalog ID. The 515 expert commands remain AI-invisible and are not Evidence.
+
+`get_ha_history` and `get_ha_checksum_nonsync` are two individually reviewed
+diagnostic Broker operations. ObservePolicy permits those exact names only for
+the staged deterministic HA workflow; it does not permit `diagnose sys ha *` or
+another Catalog diagnostic. Both are `ai_visible=false`. Their parsers retain
+only bounded normalized events, alias-only member references, checksum comparison
+categories/counts, parser state, and truncation. Raw diagnostic lines, checksum
+fingerprints, member serials/hostnames, and configuration values are discarded.
 
 Semantic collections have hard item limits and explicit truncation. Focused
 views fail when they cannot preserve truncation state. Feature/model/version
@@ -152,8 +160,9 @@ Capability and ObservePolicy. Unknown, shell, credential, and denied diagnostic
 requests cannot expand that catalog. AI tool results contain Evidence—not raw
 CommandResult output. Hard step/tool limits and duplicate-call protection prevent
 unbounded loops. Final non-insufficient conclusions require valid current
-Evidence references and cannot structurally contradict an existing deterministic
-CONFIRMED diagnosis.
+Evidence references. They cannot structurally contradict a deterministic
+`CONFIRMED` diagnosis, discard Evidence references for a `CONFIRMED` finding, or
+raise a deterministic `PROBABLE`/`STRONG` result without additional Evidence.
 
 FakeAIProvider remains deterministic and offline. The experimental native
 `openai-codex` provider can authenticate through the currently compatible

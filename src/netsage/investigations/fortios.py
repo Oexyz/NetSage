@@ -10,6 +10,9 @@ from netsage.evidence import (
     EvidenceCollectionFailure,
     EvidenceCollector,
     EvidenceEnvelope,
+    HAChecksumEvidencePayload,
+    HAHistoryEvidencePayload,
+    HAMembersEvidencePayload,
     HAStatusEvidencePayload,
     InterfacesEvidencePayload,
     IPsecStatusEvidencePayload,
@@ -18,12 +21,15 @@ from netsage.evidence import (
     SDWANStatusEvidencePayload,
     SystemHealthEvidencePayload,
 )
+from netsage.investigations.ha_correlation import correlate_ha_diagnostics
+from netsage.investigations.ha_diagnosis import build_ha_assessment
 from netsage.investigations.models import (
     Diagnosis,
     DiagnosisStrength,
     Finding,
     FindingSeverity,
     FortiOSInvestigationFocus,
+    HADiagnosticSummary,
     Investigation,
     InvestigationKind,
     InvestigationReport,
@@ -34,6 +40,7 @@ from netsage.models import (
     HEALTH_UNHEALTHY_THRESHOLD_PERCENT,
     BGPSessionState,
     Capability,
+    HAEventType,
     HASynchronizationState,
     HealthStatus,
     InterfaceState,
@@ -52,6 +59,9 @@ _MISSING_LABELS = {
     "get_routes": "route table",
     "get_system_health": "system health",
     "get_ha_status": "HA status",
+    "get_ha_members": "HA members",
+    "get_ha_history": "HA history",
+    "get_ha_checksum_nonsync": "HA checksum details",
     "get_sdwan_status": "SD-WAN status",
     "get_ipsec_status": "IPsec status",
     "get_bgp_status": "BGP status",
@@ -117,96 +127,133 @@ class FortiOSInvestigator:
 
     async def investigate_ha(self, device_id: str) -> InvestigationReport:
         investigation = self._start(device_id, InvestigationKind.HA_HEALTH)
-        observation = await self._collector.collect(
-            investigation_id=investigation.investigation_id,
-            device_id=device_id,
-            operation="get_ha_status",
-            capability=Capability.HA,
+        stage_one = await self._collect(
+            investigation,
+            (
+                ("get_ha_status", Capability.HA),
+                ("get_ha_members", Capability.HA),
+            ),
         )
-        evidence, failures = self._partition((observation,))
-        diagnosis = self._partial_diagnosis(evidence, failures)
-        findings: list[Finding] = []
-        status_observation = self._find_payload(evidence, HAStatusEvidencePayload)
-        if status_observation is not None:
-            item, payload = status_observation
-            status = payload.status
-            if status.truncated:
-                diagnosis = self._insufficient(
-                    evidence,
-                    "HA member collection was truncated",
-                )
-            elif status.enabled is False:
-                findings.append(
-                    self._finding(
-                        "ha_disabled",
-                        "HA disabled",
-                        "FortiOS reports that HA is not enabled.",
-                        FindingSeverity.INFO,
-                        item,
-                    )
-                )
-            else:
-                out_of_sync = tuple(
-                    member
+        evidence, failures = self._partition(stage_one)
+        evidence_items = list(evidence)
+        failure_items = list(failures)
+        status_observation = self._find_payload(evidence_items, HAStatusEvidencePayload)
+        if status_observation is None:
+            insufficient_diagnosis = self._partial_diagnosis(
+                evidence_items, failure_items
+            ) or self._insufficient(
+                evidence_items,
+                "HA status could not be normalized",
+            )
+            return self._report(
+                investigation,
+                evidence_items,
+                failure_items,
+                (),
+                insufficient_diagnosis,
+            )
+
+        status_evidence, status_payload = status_observation
+        status = status_payload.status
+        members_observation = self._find_payload(evidence_items, HAMembersEvidencePayload)
+        observed_member_count = (
+            len(members_observation[1].members)
+            if members_observation is not None
+            else len(status.members)
+        )
+        requires_diagnostics = status.truncated or (
+            status.enabled is True
+            and (
+                status.health in {HealthStatus.DEGRADED, HealthStatus.UNHEALTHY}
+                or observed_member_count < 2
+                or any(
+                    member.synchronization is not HASynchronizationState.IN_SYNC
                     for member in status.members
-                    if member.synchronization is HASynchronizationState.OUT_OF_SYNC
                 )
-                if out_of_sync:
-                    findings.append(
-                        self._finding(
-                            "ha_configuration_out_of_sync",
-                            "HA configuration out of sync",
-                            f"FortiOS reports {len(out_of_sync)} HA member(s) out of sync.",
-                            FindingSeverity.WARNING,
-                            item,
-                        )
-                    )
-                    diagnosis = Diagnosis(
-                        summary="FortiOS directly reports HA configuration out of sync.",
-                        strength=DiagnosisStrength.CONFIRMED,
-                        evidence_ids=(item.evidence_id,),
-                    )
-                elif status.health in {HealthStatus.DEGRADED, HealthStatus.UNHEALTHY}:
-                    severity = (
-                        FindingSeverity.CRITICAL
-                        if status.health is HealthStatus.UNHEALTHY
-                        else FindingSeverity.WARNING
-                    )
-                    findings.append(
-                        self._finding(
-                            "ha_health_degraded",
-                            "HA health degraded",
-                            f"FortiOS reports HA health as {status.health.value}.",
-                            severity,
-                            item,
-                        )
-                    )
-                    diagnosis = Diagnosis(
-                        summary="FortiOS directly reports degraded HA health.",
-                        strength=DiagnosisStrength.CONFIRMED,
-                        evidence_ids=(item.evidence_id,),
-                    )
-                elif status.enabled and status.members:
-                    findings.append(
-                        self._finding(
-                            "ha_cluster_healthy",
-                            "HA cluster healthy",
-                            "Observed HA members are synchronized and HA health is not degraded.",
-                            FindingSeverity.INFO,
-                            item,
-                        )
-                    )
-                if status.enabled and len(status.members) < 2:
-                    findings.append(
-                        self._finding(
-                            "ha_member_count_low",
-                            "Fewer than two HA members observed",
-                            "Only one HA member was observed; expected membership is not known.",
-                            FindingSeverity.WARNING,
-                            item,
-                        )
-                    )
-        return self._report(investigation, evidence, failures, findings, diagnosis)
+            )
+        )
+
+        history_observation: tuple[EvidenceEnvelope, HAHistoryEvidencePayload] | None = None
+        checksum_observation: tuple[EvidenceEnvelope, HAChecksumEvidencePayload] | None = None
+        interface_observation: tuple[EvidenceEnvelope, InterfacesEvidencePayload] | None = None
+        if requires_diagnostics:
+            stage_two = await self._collect(
+                investigation,
+                (
+                    ("get_ha_history", Capability.HA),
+                    ("get_ha_checksum_nonsync", Capability.HA),
+                ),
+            )
+            stage_two_evidence, stage_two_failures = self._partition(stage_two)
+            evidence_items.extend(stage_two_evidence)
+            failure_items.extend(stage_two_failures)
+            history_observation = self._find_payload(stage_two_evidence, HAHistoryEvidencePayload)
+            checksum_observation = self._find_payload(stage_two_evidence, HAChecksumEvidencePayload)
+            if history_observation is not None and self._ha_history_needs_interfaces(
+                history_observation[1]
+            ):
+                stage_three = await self._collect(
+                    investigation,
+                    (("get_interfaces", Capability.INTERFACES),),
+                )
+                stage_three_evidence, stage_three_failures = self._partition(stage_three)
+                evidence_items.extend(stage_three_evidence)
+                failure_items.extend(stage_three_failures)
+                interface_observation = self._find_payload(
+                    stage_three_evidence, InterfacesEvidencePayload
+                )
+
+        history = history_observation[1].history if history_observation is not None else None
+        checksum = checksum_observation[1].status if checksum_observation is not None else None
+        interfaces = (
+            interface_observation[1].interfaces if interface_observation is not None else ()
+        )
+        correlation = (
+            correlate_ha_diagnostics(
+                history=history,
+                status=status,
+                checksum=checksum,
+                interfaces=interfaces,
+            )
+            if history is not None
+            else None
+        )
+        missing_values = list(self._ha_missing_evidence(failure_items, requires_diagnostics))
+        if status.truncated:
+            missing_values.append("ha_member_state_unavailable")
+        missing = tuple(dict.fromkeys(missing_values))
+        assessment = build_ha_assessment(
+            status=status,
+            status_evidence_id=status_evidence.evidence_id,
+            history=history,
+            history_evidence_id=(
+                history_observation[0].evidence_id if history_observation is not None else None
+            ),
+            checksum=checksum,
+            checksum_evidence_id=(
+                checksum_observation[0].evidence_id if checksum_observation is not None else None
+            ),
+            interfaces=interfaces,
+            interface_evidence_id=(
+                interface_observation[0].evidence_id if interface_observation is not None else None
+            ),
+            correlation=correlation,
+            missing_evidence=missing,
+        )
+        diagnosis = assessment.diagnosis
+        if status.truncated and diagnosis is None:
+            diagnosis = self._insufficient(
+                evidence_items,
+                "HA member collection was truncated",
+            )
+        return self._report(
+            investigation,
+            evidence_items,
+            failure_items,
+            assessment.findings,
+            diagnosis,
+            ha_summary=assessment.summary,
+        )
 
     async def investigate_sdwan(self, device_id: str) -> InvestigationReport:
         investigation = self._start(device_id, InvestigationKind.SDWAN_HEALTH)
@@ -797,6 +844,36 @@ class FortiOSInvestigator:
         return None
 
     @staticmethod
+    def _ha_history_needs_interfaces(payload: HAHistoryEvidencePayload) -> bool:
+        relevant = {
+            HAEventType.HEARTBEAT_LOST,
+            HAEventType.HEARTBEAT_RESTORED,
+            HAEventType.HEARTBEAT_INTERFACE_DOWN,
+            HAEventType.HEARTBEAT_INTERFACE_RESTORED,
+            HAEventType.MEMBER_LEFT,
+            HAEventType.MEMBER_JOINED,
+            HAEventType.MEMBER_REJOINED,
+        }
+        return any(event.event_type in relevant for event in payload.history.events)
+
+    @staticmethod
+    def _ha_missing_evidence(
+        failures: Sequence[EvidenceCollectionFailure],
+        diagnostics_required: bool,
+    ) -> tuple[str, ...]:
+        mapping = {
+            "get_ha_status": "ha_status_unavailable",
+            "get_ha_members": "ha_member_state_unavailable",
+            "get_ha_history": "ha_history_unrecognized",
+            "get_ha_checksum_nonsync": "checksum_detail_unavailable",
+            "get_interfaces": "heartbeat_interface_state_unavailable",
+        }
+        missing = [mapping.get(failure.operation, failure.operation) for failure in failures]
+        if diagnostics_required and not failures:
+            return ()
+        return tuple(missing)
+
+    @staticmethod
     def _has_active_default_route(payload: RoutesEvidencePayload) -> bool:
         return any(
             route.prefix == _DEFAULT_IPV4_ROUTE and route.selected for route in payload.routes
@@ -917,6 +994,8 @@ class FortiOSInvestigator:
         failures: Sequence[EvidenceCollectionFailure],
         findings: Sequence[Finding],
         diagnosis: Diagnosis | None,
+        *,
+        ha_summary: HADiagnosticSummary | None = None,
     ) -> InvestigationReport:
         if failures or (
             diagnosis is not None and diagnosis.strength is DiagnosisStrength.INSUFFICIENT
@@ -936,4 +1015,5 @@ class FortiOSInvestigator:
             failures=tuple(failures),
             findings=tuple(findings),
             diagnosis=diagnosis,
+            ha_summary=ha_summary,
         )

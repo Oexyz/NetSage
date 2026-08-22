@@ -44,11 +44,12 @@ def test_ha_healthy_members_usage_and_sync_are_typed() -> None:
     assert status.group_name == "synthetic-cluster"
     assert status.group_id == 7
     assert status.cluster_uptime_seconds == 1_047_845
-    assert status.primary_member_id == "member-a"
+    assert status.primary_member_id == "member-1"
     assert len(status.members) == 2
     assert status.members[0].synchronization is HASynchronizationState.IN_SYNC
     assert status.members[0].cpu_percent == 5
     assert status.members[0].memory_percent == 42
+    assert "member-a" not in status.model_dump_json()
 
 
 def test_ha_out_of_sync_missing_member_and_reordered_fields_are_honest() -> None:

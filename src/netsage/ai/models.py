@@ -48,6 +48,7 @@ class AIFinding(BaseModel):
     title: str
     summary: str
     severity: FindingSeverity
+    strength: DiagnosisStrength | None = None
     evidence_ids: tuple[UUID, ...]
 
 

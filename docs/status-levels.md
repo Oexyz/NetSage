@@ -61,6 +61,11 @@ builds, and authorized live verification recorded in project documentation.
 | In Development | None currently | No partially implemented area is presented as usable; placeholders remain Planned |
 | Planned | Additional AI providers and vendors; Discovery; Topology; Vantage Points; Probes; MCP/Web; Plan/Apply; automatic remediation | Architecture or placeholders only; no usable implementation |
 
+The typed HA history/checksum parser, staged correlation, Evidence, and physical
+root-cause guard form a Supported-quality internal semantic boundary. Their live
+FortiOS firmware/model compatibility remains part of the Beta FortiOS driver and
+does not promote FortiOS as a whole.
+
 The generated FortiOS catalog's 19,030/19,030 source coverage is command-knowledge
 coverage for FortiOS 7.2.13. It is not 100% FortiOS product support. Likewise,
 Supported security components remain subject to security review and defect

@@ -16,6 +16,8 @@ from netsage.models import (
     Capability,
     DeviceFacts,
     FirewallPolicy,
+    HAChecksumStatus,
+    HAHistory,
     HAMember,
     HAStatus,
     Interface,
@@ -53,6 +55,8 @@ class FakeDriver(NetworkDriver):
         firewall_policies: Sequence[FirewallPolicy] | None = None,
         ha_status: HAStatus | None = None,
         ha_members: Sequence[HAMember] | None = None,
+        ha_history: HAHistory | None = None,
+        ha_checksum_nonsync: HAChecksumStatus | None = None,
         sdwan_status: SDWANStatus | None = None,
         sdwan_members: Sequence[SDWANMember] | None = None,
         sdwan_health_checks: Sequence[SDWANHealthCheck] | None = None,
@@ -79,6 +83,8 @@ class FakeDriver(NetworkDriver):
         )
         self._ha_status = ha_status
         self._ha_members = tuple(ha_members) if ha_members is not None else None
+        self._ha_history = ha_history
+        self._ha_checksum_nonsync = ha_checksum_nonsync
         self._sdwan_status = sdwan_status
         self._sdwan_members = tuple(sdwan_members) if sdwan_members is not None else None
         self._sdwan_health_checks = (
@@ -113,7 +119,17 @@ class FakeDriver(NetworkDriver):
                 (Capability.FIREWALL, self._firewall_policies),
                 (
                     Capability.HA,
-                    self._ha_status if self._ha_status is not None else self._ha_members,
+                    self._ha_status
+                    if self._ha_status is not None
+                    else (
+                        self._ha_members
+                        if self._ha_members is not None
+                        else (
+                            self._ha_history
+                            if self._ha_history is not None
+                            else self._ha_checksum_nonsync
+                        )
+                    ),
                 ),
                 (
                     Capability.SDWAN,
@@ -205,6 +221,16 @@ class FakeDriver(NetworkDriver):
                 raise IncompleteCollectionError("Fake HA member collection was truncated")
             return self._ha_status.members
         raise self._unsupported(Capability.HA)
+
+    async def get_ha_history(self) -> HAHistory:
+        if self._ha_history is None:
+            raise self._unsupported(Capability.HA)
+        return self._ha_history
+
+    async def get_ha_checksum_nonsync(self) -> HAChecksumStatus:
+        if self._ha_checksum_nonsync is None:
+            raise self._unsupported(Capability.HA)
+        return self._ha_checksum_nonsync
 
     async def get_sdwan_status(self) -> SDWANStatus:
         if self._sdwan_status is None:

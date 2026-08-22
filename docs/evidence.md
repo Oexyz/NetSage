@@ -41,7 +41,8 @@ closed set covers normalized:
 - routes;
 - system health;
 - IPv4 firewall policies;
-- HA status and members;
+- HA status and identity-safe members;
+- bounded normalized HA history events and checksum non-sync scope comparisons;
 - SD-WAN status, members, and health checks;
 - IPsec status and tunnels with Phase 1/Phase 2 state;
 - BGP status and neighbors;
@@ -60,6 +61,13 @@ Focused member/neighbor/tunnel operations reject a truncated source instead of
 silently returning a partial tuple. Empty or unrecognized feature output becomes
 `EvidenceCollectionFailure`; only an explicit FortiOS disabled/not-running state
 becomes a successful payload with `enabled=false`.
+
+HA diagnostic payloads never contain raw history lines, configuration values, or
+checksum fingerprints. History member identities are replaced with `member-N`
+aliases, and HA status/member Evidence applies the same aliasing before storage.
+Unknown history lines retain only the `UNKNOWN` event type. HA history is limited
+to 2,048 normalized events and checksum comparison state to 128 scope results;
+parser input limits and any truncation remain explicit in Evidence.
 
 ## Provenance and trust
 
@@ -88,6 +96,10 @@ Normal stored Device investigations persist the same typed envelopes through
 capture storage remains intentionally unimplemented. The semantic expansion uses
 the existing History schema: older Evidence variants remain loadable, and the
 new discriminators round-trip without a database migration.
+
+HA Audit details contain only the normalized event/mismatch count and truncation
+flag. Raw history and checksum output never enter Audit, SQLite, or terminal
+history. See [FortiOS HA diagnostics](fortios-ha-diagnostics.md).
 
 The administrator-facing FortiOS compatibility report is intentionally not
 Evidence and is not persisted in Investigation History. It characterizes parser

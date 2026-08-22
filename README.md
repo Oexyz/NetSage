@@ -37,7 +37,7 @@ shell, password, private-key, or API-token access.
 | Supported | Interactive shell | Shared-handler NetSage REPL with quoting/help/cancellation tests and no OS-shell fallback |
 | Beta | FortiGate / FortiOS | Live-verified read-only driver and onboarding; firmware/model compatibility breadth remains limited |
 | Beta | Deterministic FortiOS investigations | Health, route, interface, HA, SD-WAN, IPsec, and dynamic-routing workflows |
-| Beta | FortiOS semantic compatibility | 12 typed operations, version-aware reviewed variants, explicit capability states, and a safe compatibility report |
+| Beta | FortiOS semantic compatibility | 14 typed operations, staged HA correlation, reviewed variants, explicit capability states, and a safe compatibility report |
 | Beta | FortiOS command knowledge | 19,030 classified FortiOS 7.2.13 definitions; knowledge coverage is not universal FortiOS support |
 | Beta | Safe FortiOS catalog execution | 515 bounded READ_ONLY definitions; 362 require review and 172 are non-executable |
 | Beta | OpenAI API | Official API-key-backed provider with strict output and isolated keyring storage |
@@ -302,6 +302,21 @@ It produces findings and an optional qualitative diagnosis without an AI
 provider. See the [evidence model](docs/evidence.md) and
 [investigation semantics](docs/investigations.md).
 
+### Correlated FortiOS HA diagnostics
+
+`netsage investigate DEVICE --focus ha` now starts with cheap HA status/member
+Evidence and runs deeper history/checksum diagnostics only after an anomaly. If
+heartbeat/member events are present, it correlates the relevant normalized
+interface state and reports a bounded fault domain.
+
+The workflow distinguishes confirmed configuration non-synchronization,
+probable heartbeat communication instability, strong heartbeat-interface
+correlation, explicit member/HA-process restarts, and genuinely insufficient
+physical Evidence. It does not equate member rejoin with reboot and never calls
+a cable, port, or peer failure confirmed without direct Evidence. Raw HA history,
+checksum fingerprints, member identities, and command text are neither persisted
+nor sent to AI. See [FortiOS HA diagnostics](docs/fortios-ha-diagnostics.md).
+
 ### FortiOS command catalog
 
 The local `fortios.md` reference is processed at development time into a compact
@@ -314,11 +329,11 @@ generated runtime manifest. Current measured coverage is:
 - 19,030 discovered and catalogued definitions (100% generator coverage);
 - 1,049 read-only, 2,758 diagnostic, 14,390 configuration, and 833 destructive;
 - 515 READ_ONLY definitions safely executable as bounded `SANITIZED_TEXT`;
-- 12 additional semantic operations with typed output and Evidence;
+- 14 additional semantic operations with typed output and Evidence;
 - 5 comprehensive semantic status tools exposed through the AI Broker boundary;
 - 362 READ_ONLY definitions require review and 172 are non-executable;
-- 2 existing structured diagnostic commands with typed parsers; all 2,758
-  diagnostics remain denied by default through Catalog Execution;
+- 2 existing IP diagnostic commands plus 2 explicitly reviewed, AI-invisible HA
+  diagnostic semantic operations; all other diagnostics remain denied by default;
 - 0 configuration and 0 destructive definitions executable;
 - 18,513 catalog-only definitions.
 
@@ -446,12 +461,14 @@ optional Codex App Server adapter, and separate OpenAI API provider.
 
 - Health, active-default-route, interface-state, HA, SD-WAN, IPsec, and
   dynamic-routing workflows
+- Staged HA history/checksum/interface correlation with typed incident episodes
+  and an explicit physical root-cause boundary
 - Explicit `INSUFFICIENT` results when required observations are unavailable
 - AI-independent reports and authorized live verification
 
 ### FortiOS semantic observability — beta
 
-- 12 typed operations across HA, SD-WAN, IPsec, BGP, OSPF, and route summary
+- 14 typed operations across HA, SD-WAN, IPsec, BGP, OSPF, and route summary
 - Bounded collections with explicit truncation and controlled unsupported output
 - Typed Evidence and deterministic findings without raw CLI or invented causes
 - Five comprehensive AI tools; focused views remain Broker-only

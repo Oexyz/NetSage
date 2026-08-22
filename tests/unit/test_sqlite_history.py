@@ -7,10 +7,16 @@ from uuid import UUID
 import pytest
 
 from netsage.broker import AuditEvent, AuditResult
+from netsage.drivers.fortios.semantic import (
+    parse_ha_checksum_nonsync,
+    parse_ha_history,
+)
 from netsage.evidence import (
     DuplicateEvidenceError,
     EvidenceEnvelope,
     EvidenceProvenance,
+    HAChecksumEvidencePayload,
+    HAHistoryEvidencePayload,
     HAStatusEvidencePayload,
     InterfacesEvidencePayload,
 )
@@ -32,12 +38,21 @@ from netsage.investigations import (
     DiagnosisStrength,
     Finding,
     FindingSeverity,
+    HADiagnosticSummary,
     Investigation,
     InvestigationKind,
     InvestigationReport,
     InvestigationStatus,
 )
-from netsage.models import Capability, DataTrust, HAStatus, Interface, Platform
+from netsage.models import (
+    Capability,
+    DataTrust,
+    HAFaultDomain,
+    HAStatus,
+    HASynchronizationState,
+    Interface,
+    Platform,
+)
 from netsage.policies import AuthorizationDecision
 from netsage.security import SecretRedactor
 
@@ -187,6 +202,125 @@ def test_semantic_observability_evidence_roundtrips_without_schema_change(
     assert reloaded == evidence
     assert isinstance(reloaded.payload, HAStatusEvidencePayload)
     assert reloaded.payload.status.enabled is False
+
+
+def test_typed_ha_diagnostics_and_summary_roundtrip_without_raw_output(tmp_path: Path) -> None:
+    history = parse_ha_history(
+        "fortigate-example",
+        "\n".join(
+            (
+                "<2025-01-01 10:00:00> member peer-a lost heartbeat on hbdev ha-link-a",
+                "<2025-01-01 10:00:01> new member peer-a joins the cluster",
+            )
+        ),
+    )
+    checksum = parse_ha_checksum_nonsync(
+        "fortigate-example",
+        "\n".join(
+            (
+                "member-a",
+                "global: 00 01 02 03 04 05 06 07",
+                "checksum",
+                "global: 00 01 02 03 04 05 06 ff",
+            )
+        ),
+    )
+    history_id = UUID(int=11)
+    checksum_id = UUID(int=12)
+    history_evidence = EvidenceEnvelope(
+        evidence_id=history_id,
+        investigation_id=INVESTIGATION_ID,
+        device_id="fortigate-example",
+        operation="get_ha_history",
+        capability=Capability.HA,
+        observed_at=NOW,
+        trust=DataTrust.UNTRUSTED_DEVICE_DATA,
+        payload=HAHistoryEvidencePayload(history=history),
+        provenance=EvidenceProvenance(
+            tool="get_ha_history",
+            device_id="fortigate-example",
+            capability=Capability.HA,
+            platform=Platform.FORTIOS,
+            driver="FakeDriver",
+            parser_variant="ha-history-v1",
+        ),
+    )
+    checksum_evidence = EvidenceEnvelope(
+        evidence_id=checksum_id,
+        investigation_id=INVESTIGATION_ID,
+        device_id="fortigate-example",
+        operation="get_ha_checksum_nonsync",
+        capability=Capability.HA,
+        observed_at=NOW,
+        trust=DataTrust.UNTRUSTED_DEVICE_DATA,
+        payload=HAChecksumEvidencePayload(status=checksum),
+        provenance=EvidenceProvenance(
+            tool="get_ha_checksum_nonsync",
+            device_id="fortigate-example",
+            capability=Capability.HA,
+            platform=Platform.FORTIOS,
+            driver="FakeDriver",
+            parser_variant="ha-checksum-nonsync-v1",
+        ),
+    )
+    report = InvestigationReport(
+        investigation=Investigation(
+            investigation_id=INVESTIGATION_ID,
+            device_id="fortigate-example",
+            kind=InvestigationKind.HA_HEALTH,
+            started_at=NOW,
+        ),
+        completed_at=NOW,
+        status=InvestigationStatus.WARNING,
+        evidence_ids=(history_id, checksum_id),
+        findings=(
+            Finding(
+                code="ha_heartbeat_communication_instability",
+                title="HA heartbeat communication instability",
+                summary="A synthetic typed HA pattern was observed.",
+                severity=FindingSeverity.WARNING,
+                strength=DiagnosisStrength.PROBABLE,
+                evidence_ids=(history_id,),
+            ),
+        ),
+        diagnosis=Diagnosis(
+            summary="The likely fault domain is HA heartbeat communication.",
+            strength=DiagnosisStrength.PROBABLE,
+            evidence_ids=(history_id, checksum_id),
+            missing_evidence=("heartbeat_physical_layer_unobservable",),
+        ),
+        ha_summary=HADiagnosticSummary(
+            synchronization=HASynchronizationState.OUT_OF_SYNC,
+            history_event_count=2,
+            incident_count=1,
+            heartbeat_instability=True,
+            interface_instability=False,
+            checksum_mismatch_count=1,
+            member_restart_observed=False,
+            ha_process_restart_observed=False,
+            fault_domains=(
+                HAFaultDomain.CONFIGURATION_SYNCHRONIZATION,
+                HAFaultDomain.HA_HEARTBEAT_COMMUNICATION,
+            ),
+            strength=DiagnosisStrength.PROBABLE,
+            missing_evidence=("heartbeat_physical_layer_unobservable",),
+        ),
+    )
+    db = database(tmp_path)
+    SQLiteInvestigationStore(db).add(report, (history_evidence, checksum_evidence))
+
+    reloaded_report = SQLiteInvestigationStore(HistoryDatabase(db.path)).get(INVESTIGATION_ID)
+    reloaded_evidence = SQLiteEvidenceStore(HistoryDatabase(db.path)).list_for_investigation(
+        INVESTIGATION_ID
+    )
+    assert reloaded_report == report
+    assert reloaded_report.ha_summary is not None
+    assert reloaded_report.ha_summary.specific_physical_cause_confirmed is False
+    assert isinstance(reloaded_evidence[0].payload, HAHistoryEvidencePayload)
+    assert isinstance(reloaded_evidence[1].payload, HAChecksumEvidencePayload)
+    serialized = "".join(item.model_dump_json() for item in reloaded_evidence)
+    assert "peer-a" not in serialized
+    assert "00 01 02" not in serialized
 
 
 def test_duplicate_ids_unknown_history_delete_and_evidence_cascade(tmp_path: Path) -> None:

@@ -66,6 +66,8 @@ class FortiOSRequest:
 class FortiOSSemanticCommand(StrEnum):
     """Source-traceable read-only catalog definitions promoted only semantically."""
 
+    HA_HISTORY = "fortios.diagnose.sys.ha.history.read"
+    HA_CHECKSUM_NONSYNC = "fortios.diagnose.sys.ha.checksum.show-nonsync"
     SDWAN_HEALTH_CHECKS = "fortios.diagnose.sys.sdwan.health-check"
     IPSEC_PHASE1 = "fortios.diagnose.vpn.ike.gateway.list"
     IPSEC_TUNNELS = "fortios.diagnose.vpn.tunnel.list"

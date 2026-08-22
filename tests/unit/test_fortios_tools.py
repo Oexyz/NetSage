@@ -15,7 +15,7 @@ from netsage.drivers.fortios import (
 from netsage.inventory import Inventory
 from netsage.models import DeviceRef
 from netsage.policies import ObservePolicy
-from netsage.tools import FortiOSToolSet
+from netsage.tools import REVIEWED_HA_DIAGNOSTIC_TOOLS, FortiOSToolSet
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "fortigate"
 
@@ -38,6 +38,8 @@ class FixtureTransport:
         FortiOSCommand.TRACEROUTE: "traceroute.txt",
     }
     semantic_outputs: ClassVar[dict[FortiOSSemanticCommand, str]] = {
+        FortiOSSemanticCommand.HA_HISTORY: "ha_history_repeated_instability.txt",
+        FortiOSSemanticCommand.HA_CHECKSUM_NONSYNC: "ha_checksum_mismatch.txt",
         FortiOSSemanticCommand.SDWAN_HEALTH_CHECKS: "sdwan_health_checks.txt",
         FortiOSSemanticCommand.IPSEC_PHASE1: "ipsec_phase1.txt",
         FortiOSSemanticCommand.IPSEC_TUNNELS: "ipsec_tunnels.txt",
@@ -128,6 +130,10 @@ async def test_diagnostics_require_explicit_observe_policy_permission() -> None:
     arguments = {"device": device.name, "destination": "198.51.100.10"}
     with pytest.raises(AuthorizationDeniedError, match="diagnostic"):
         await denied.invoke("ping", arguments)
+    with pytest.raises(AuthorizationDeniedError, match="diagnostic"):
+        await denied.invoke("get_ha_history", {"device": device.name})
+    with pytest.raises(AuthorizationDeniedError, match="diagnostic"):
+        await denied.invoke("get_ha_checksum_nonsync", {"device": device.name})
 
     allowed = ToolBroker(
         inventory=inventory,
@@ -138,6 +144,33 @@ async def test_diagnostics_require_explicit_observe_policy_permission() -> None:
     trace = await allowed.invoke("traceroute", arguments)
     assert ping.output["result"]["packets_received"] == 5  # type: ignore[index]
     assert trace.output["result"]["reached"] is True  # type: ignore[index]
+
+
+@pytest.mark.asyncio
+async def test_reviewed_ha_diagnostics_are_typed_audited_and_ai_invisible() -> None:
+    driver = FortiOSDriver("fortigate-lab", FixtureTransport())
+    device = make_device(driver)
+    audit = InMemoryAuditSink()
+    broker = ToolBroker(
+        inventory=Inventory(devices={device.name: device}),
+        policy=ObservePolicy(allowed_diagnostics=REVIEWED_HA_DIAGNOSTIC_TOOLS),
+        audit_sink=audit,
+    )
+    FortiOSToolSet({device.name: driver}).register(broker)
+
+    history = await broker.invoke("get_ha_history", {"device": device.name})
+    checksum = await broker.invoke("get_ha_checksum_nonsync", {"device": device.name})
+
+    assert len(history.output["result"]["events"]) == 13  # type: ignore[index]
+    assert checksum.output["result"]["mismatch_count"] == 1  # type: ignore[index]
+    assert "event_count=13" in (audit.events[0].detail or "")
+    assert "truncated=false" in (audit.events[0].detail or "")
+    assert "mismatch_count=1" in (audit.events[1].detail or "")
+    ai_tools = {definition.name for definition in broker.ai_tools_for_device(device.name)}
+    assert "get_ha_history" not in ai_tools
+    assert "get_ha_checksum_nonsync" not in ai_tools
+    assert all(event.configuration_changed is False for event in audit.events)
+    assert all(event.credential_exposed is False for event in audit.events)
 
 
 @pytest.mark.asyncio

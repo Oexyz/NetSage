@@ -35,6 +35,8 @@ bounded to the live operation.
 | System health | `get system performance status` | Read-only |
 | IPv4 firewall policies | `show firewall policy` | Read-only |
 | HA status | `get system ha status` | Read-only |
+| HA history | Trusted Catalog ID | Explicitly reviewed diagnostic semantic promotion |
+| HA checksum non-sync | Trusted Catalog ID | Explicitly reviewed diagnostic semantic promotion |
 | SD-WAN members | `diagnose sys sdwan member` | Reviewed read-only semantic request |
 | SD-WAN health checks | Trusted Catalog ID | Read-only semantic promotion |
 | IPsec Phase 1 | Trusted Catalog ID | Read-only semantic promotion |
@@ -47,14 +49,16 @@ bounded to the live operation.
 | Ping | `execute ping <validated-IP>` | Diagnostic |
 | Traceroute | `execute traceroute <validated-IP>` | Diagnostic |
 
-Diagnostics accept only parsed IP address objects and are denied by the default
-Observe policy. No user or AI string can become a FortiOS command.
+Ping/traceroute accept only parsed IP address objects and are denied by the
+default Observe policy. The two HA diagnostics are separately allowlisted by
+semantic operation name only for staged HA investigations. There is no wildcard
+HA diagnostic policy. No user or AI string can become a FortiOS command.
 
 The complete local FortiOS 7.2.13 CLI reference is now transformed into a
 generated knowledge catalog with command class, capability, typed argument,
 context, execution/parser support, and source line/page metadata. The catalog is
 not a transport allowlist and is never exposed as an arbitrary CLI tool. The
-fixed operations and three source-traceable semantic Catalog-ID promotions above
+fixed operations and five source-traceable semantic Catalog-ID promotions above
 are executable only through typed Driver methods. The semantic enum has no
 arguments and cannot carry user or AI text. Adding another executable operation
 still requires a semantic capability, explicit policy, reviewed typed rendering,
@@ -62,7 +66,7 @@ redaction, normalized output or a documented sanitized-text boundary, and tests.
 
 ### Semantic observability
 
-The Driver implements twelve additional vendor-neutral operations across HA,
+The Driver implements fourteen additional vendor-neutral operations across HA,
 SD-WAN, IPsec, BGP, OSPF, and route summary. Five comprehensive status operations
 are AI-promoted; seven focused views remain Broker-only. Comprehensive results
 carry explicit collection limits and `truncated`; focused views reject a
@@ -92,6 +96,12 @@ The Driver and parser layer distinguish explicit Enabled, Disabled, Not
 Configured, Unknown, Parsed, Partial, and Unrecognized states. Permission denial
 and command unavailability are separate transport exceptions rather than one
 generic command failure.
+
+HA history and checksum have dedicated parser modules. History normalizes only
+reviewed event grammar, aliases member identities, preserves unknown events
+without raw text, and bounds both source size and event count. Checksum parsing
+retains only comparison/scope counts and discards fingerprints and configuration
+values. See [FortiOS HA diagnostics](fortios-ha-diagnostics.md).
 
 Inspect the local catalog without connecting to a device:
 

@@ -57,7 +57,10 @@ def parse_ha_status(
     _parse_roles(text, members)
     _parse_usage(text, members)
     normalized_members, truncated = bounded_tuple(
-        (_model(device_id, member) for member in members.values()),
+        (
+            _model(device_id, member, member_ref=f"member-{index}")
+            for index, member in enumerate(members.values(), start=1)
+        ),
         MAX_HA_MEMBERS,
     )
     primary = next(
@@ -180,11 +183,11 @@ def _parse_usage(output: str, members: dict[str, _MemberData]) -> None:
         member.memory_percent = float(usage_match.group(6))
 
 
-def _model(device_id: str, value: _MemberData) -> HAMember:
+def _model(device_id: str, value: _MemberData, *, member_ref: str) -> HAMember:
     return HAMember(
         device_id=device_id,
-        member_id=value.member_id,
-        hostname=value.hostname,
+        member_id=member_ref,
+        hostname=None,
         role=value.role,
         synchronization=value.synchronization,
         cluster_index=value.cluster_index,

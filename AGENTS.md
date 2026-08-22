@@ -94,14 +94,14 @@ The current local verification snapshot is recorded in `CURRENT_MILESTONE.md`.
 Do not copy historical test totals from this guide when newer live gate output is
 available.
 
-As of 2026-08-22, Ruff format/check and strict mypy pass for 118 source files,
-pytest reports 376 passing tests with 87.15% coverage, the generated-catalog drift
+As of 2026-08-22, Ruff format/check and strict mypy pass for 123 source files,
+pytest reports 400 passing tests with 87.74% coverage, the generated-catalog drift
 check is clean, and all configured pre-commit hooks pass. Native ChatGPT/Codex
 OAuth login, keyring storage, strict synthetic inference, refresh rotation, an
 authorized FortiOS AI investigation, and the rebuilt/installed Windows standalone
 were verified live without configuration changes or token leaks.
 
-The FortiOS semantic milestone adds 12 bounded operations, five AI-promoted
+The FortiOS semantic surface now has 14 bounded operations, five AI-promoted
 status tools, five typed status Evidence domains, four deterministic Focus
 workflows, and IKE/IPsec key-material redaction. HA, explicit disabled SD-WAN,
 IPsec, and OSPF were verified on authorized hardware; the later compatibility
@@ -120,8 +120,8 @@ FortiOS Read-Only Catalog Execution Foundation is published on `main` and
 CI-green at `ed9adfa`. Native Codex OAuth is complete in the separate feature
 commit `ee128e9`, and Status Reclassification & Alpha Readiness is published at
 `f81328d`, and FortiOS Semantic Observability is published at `f17b9e4`. The
-active milestone is FortiOS Semantic Compatibility Hardening & Supported
-Readiness. Consult `CURRENT_MILESTONE.md`, Git, and current gate output for its
+active milestone is FortiOS HA Diagnostic Correlation & Root-Cause Narrowing.
+Consult `CURRENT_MILESTONE.md`, Git, and current gate output for its
 verification/publication state.
 `fortios.md` is local copyrighted reference material and must remain ignored;
 generated metadata, tests, and honest coverage documentation are the repository
@@ -242,7 +242,8 @@ compatibility, not because its local implementation lacks testing.
   `get_facts`, `get_interfaces`, `get_vlans`, `get_mac_table`, `get_arp_table`,
   `get_routes`, `get_lldp_neighbors`, `get_system_health`,
   `get_firewall_policies`, typed HA/SD-WAN/IPsec/BGP/OSPF status and focused
-  views, route summary, `ping`, and `traceroute`.
+  views, HA history/checksum diagnostics, route summary, `ping`, and
+  `traceroute`.
 - `AIProvider` accepts only sanitized context and broker-owned `StructuredTool`
   definitions and returns typed provider-neutral final/tool-call responses.
   `CodexOAuthProvider` implements native experimental ChatGPT/Codex OAuth;
@@ -280,7 +281,7 @@ compatibility, not because its local implementation lacks testing.
 - The FortiOS package contains the first real read-only driver. Its fixed SSH
   allowlist supports facts, interfaces, VLANs, ARP, routes, health, IPv4 firewall
   policies, HA, SD-WAN, IPsec, BGP, OSPF, and policy-controlled IP-only
-  ping/traceroute. Three source-traceable argument-free semantic promotions use
+  ping/traceroute. Five source-traceable argument-free semantic promotions use
   fixed Catalog IDs; callers still cannot supply IDs or command strings.
   Host-key pinning is mandatory, credentials resolve only inside the trusted
   transport, and paging never changes global console configuration.
@@ -313,12 +314,25 @@ compatibility, not because its local implementation lacks testing.
   untrusted-data marking, UUID references, and non-secret provenance. Evidence is
   created only from Broker results and stored in a secret-rejecting in-memory or
   SQLite store. New semantic collections are bounded and preserve truncation.
+- HA history/checksum Evidence contains normalized events and comparison
+  categories only. Raw lines, checksum fingerprints, member serials/hostnames,
+  and configuration values are discarded; member identities use `member-N`
+  aliases.
 - The deterministic investigation domain supports FortiOS health, active IPv4
   default-route, interface-state, HA, SD-WAN, IPsec, and dynamic-routing workflows
   with findings, qualitative diagnoses, partial-evidence handling, and
   AI-independent reports. Focused semantic workflows were live-verified without
   persisting credentials or raw output; unavailable BGP state remains missing
-  Evidence.
+Evidence.
+- The correlated HA live workflow reports 31 timestamped incident episodes,
+  confirms configuration non-synchronization and status/checksum disagreement,
+  narrows repeated heartbeat/interface instability to Strong, finds no explicit
+  member/HA-process restart, and keeps the specific physical cause unconfirmed.
+- HA focus is staged: status/members first, history/checksum only after an
+  anomaly, and interface Evidence only after heartbeat/membership events. It
+  correlates timestamped episodes and distinguishes config drift, heartbeat
+  communication/interface instability, explicit restart/process evidence, and
+  insufficient physical root cause without claiming cable failure.
 - Topology and incidents remain scaffolding only. The bounded AgentRuntime and
   FortiOS-only AI `ask` composition are implemented; no autonomous device or
   local-shell agent exists.
@@ -553,7 +567,9 @@ Do not imply that the following exist, and do not add them incidentally:
 
 ## Next recommended milestone
 
-Complete FortiOS Semantic Compatibility Hardening & Supported Readiness before
-beginning anything else. The next milestone must remain FortiOS if the resulting
-matrix says KEEP BETA; do not automatically begin another provider, vendor,
-discovery, topology, probe, vantage-point, MCP, Web, or configuration milestone.
+Complete and publish FortiOS HA Diagnostic Correlation & Root-Cause Narrowing
+before beginning anything else. After its completion, keep FortiOS Beta and
+prioritize the remaining live gaps in this order: BGP Output Unrecognized, IPsec
+Partial, active SD-WAN, then OSPF adjacency. Do not begin another provider,
+vendor, discovery, topology, probe, vantage-point, MCP, Web, or configuration
+milestone automatically.

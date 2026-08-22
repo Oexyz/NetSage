@@ -1,12 +1,17 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from ipaddress import ip_address, ip_network
+from pathlib import Path
 from uuid import UUID
 
 import pytest
 
 from netsage.broker import AuditResult, InMemoryAuditSink, ToolBroker
 from netsage.drivers import FakeDriver
+from netsage.drivers.fortios.semantic import (
+    parse_ha_checksum_nonsync,
+    parse_ha_history,
+)
 from netsage.evidence import (
     EvidenceCollectionFailure,
     EvidenceCollector,
@@ -53,10 +58,12 @@ from netsage.models import (
     SDWANStatus,
     SystemHealth,
 )
-from netsage.tools import StructuredDriverToolSet
+from netsage.policies import ObservePolicy
+from netsage.tools import REVIEWED_HA_DIAGNOSTIC_TOOLS, StructuredDriverToolSet
 
 NOW = datetime(2026, 8, 20, 20, 30, tzinfo=UTC)
 DEVICE_ID = "fortigate-lab"
+FIXTURES = Path(__file__).parents[1] / "fixtures" / "fortigate"
 
 
 @dataclass(frozen=True)
@@ -136,7 +143,12 @@ def make_runtime(
     )
     inventory = Inventory(devices={device.name: device})
     audit = InMemoryAuditSink()
-    broker = ToolBroker(inventory=inventory, audit_sink=audit, user="test-operator")
+    broker = ToolBroker(
+        inventory=inventory,
+        policy=ObservePolicy(allowed_diagnostics=REVIEWED_HA_DIAGNOSTIC_TOOLS),
+        audit_sink=audit,
+        user="test-operator",
+    )
     StructuredDriverToolSet({device.name: driver}).register(broker)
     evidence_ids = iter(UUID(int=value) for value in range(1, 32))
     store = InMemoryEvidenceStore()
@@ -389,6 +401,7 @@ async def test_ha_healthy_out_of_sync_and_member_missing_findings() -> None:
     healthy_report = await healthy.investigator.investigate_ha(DEVICE_ID)
     assert healthy_report.status is InvestigationStatus.HEALTHY
     assert healthy_report.findings[0].code == "ha_cluster_healthy"
+    assert [event.tool for event in healthy.audit.events] == ["get_ha_status", "get_ha_members"]
 
     degraded = make_runtime(
         FakeDriver(
@@ -413,6 +426,67 @@ async def test_ha_healthy_out_of_sync_and_member_missing_findings() -> None:
     }
     assert degraded_report.diagnosis is not None
     assert degraded_report.diagnosis.strength is DiagnosisStrength.CONFIRMED
+
+
+@pytest.mark.asyncio
+async def test_ha_investigation_stages_history_checksum_and_interface_correlation() -> None:
+    history = parse_ha_history(
+        DEVICE_ID,
+        (FIXTURES / "ha_history_repeated_instability.txt").read_text(encoding="utf-8"),
+    )
+    checksum = parse_ha_checksum_nonsync(
+        DEVICE_ID,
+        (FIXTURES / "ha_checksum_mismatch.txt").read_text(encoding="utf-8"),
+    )
+    status = HAStatus(
+        device_id=DEVICE_ID,
+        enabled=True,
+        health=HealthStatus.DEGRADED,
+        members=(
+            HAMember(
+                device_id=DEVICE_ID,
+                member_id="member-a",
+                synchronization=HASynchronizationState.IN_SYNC,
+            ),
+            HAMember(
+                device_id=DEVICE_ID,
+                member_id="member-b",
+                synchronization=HASynchronizationState.OUT_OF_SYNC,
+            ),
+        ),
+    )
+    runtime = make_runtime(
+        FakeDriver(
+            ha_status=status,
+            ha_history=history,
+            ha_checksum_nonsync=checksum,
+            interfaces=(interface(name="ha-link-a"),),
+        )
+    )
+
+    report = await runtime.investigator.investigate_ha(DEVICE_ID)
+
+    assert [event.tool for event in runtime.audit.events] == [
+        "get_ha_status",
+        "get_ha_members",
+        "get_ha_history",
+        "get_ha_checksum_nonsync",
+        "get_interfaces",
+    ]
+    assert "event_count=" in runtime.audit.events[2].detail
+    assert "mismatch_count=1" in runtime.audit.events[3].detail
+    assert report.ha_summary is not None
+    assert report.ha_summary.incident_count == 3
+    assert report.ha_summary.specific_physical_cause_confirmed is False
+    assert report.diagnosis is not None
+    assert report.diagnosis.strength is DiagnosisStrength.STRONG
+    codes = {finding.code for finding in report.findings}
+    assert "ha_configuration_out_of_sync" in codes
+    assert "ha_heartbeat_communication_instability" in codes
+    assert "ha_heartbeat_link_instability" in codes
+    rendered = render_investigation_report(report)
+    assert "HA Diagnosis" in rendered
+    assert "Specific physical cause:\nNOT CONFIRMED" in rendered
 
 
 @pytest.mark.asyncio

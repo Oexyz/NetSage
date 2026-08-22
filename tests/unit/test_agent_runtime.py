@@ -37,6 +37,8 @@ from netsage.inventory import Inventory
 from netsage.investigations import (
     Diagnosis,
     DiagnosisStrength,
+    Finding,
+    FindingSeverity,
     Investigation,
     InvestigationKind,
     InvestigationReport,
@@ -64,8 +66,17 @@ INVESTIGATION_ID = UUID(int=100)
 CANARY = "NETSAGE_AI_CANARY_SECRET_DO_NOT_EXPOSE"
 
 
-def deterministic_report(*, diagnosis: Diagnosis | None = None) -> InvestigationReport:
-    evidence_ids = diagnosis.evidence_ids if diagnosis is not None else ()
+def deterministic_report(
+    *,
+    diagnosis: Diagnosis | None = None,
+    findings: tuple[Finding, ...] = (),
+) -> InvestigationReport:
+    evidence_ids = tuple(
+        dict.fromkeys(
+            (diagnosis.evidence_ids if diagnosis is not None else ())
+            + tuple(evidence_id for finding in findings for evidence_id in finding.evidence_ids)
+        )
+    )
     return InvestigationReport(
         investigation=Investigation(
             investigation_id=INVESTIGATION_ID,
@@ -78,6 +89,7 @@ def deterministic_report(*, diagnosis: Diagnosis | None = None) -> Investigation
             InvestigationStatus.WARNING if diagnosis is not None else InvestigationStatus.HEALTHY
         ),
         evidence_ids=evidence_ids,
+        findings=findings,
         diagnosis=diagnosis,
     )
 
@@ -241,7 +253,8 @@ async def test_semantic_ha_tool_is_ai_visible_bounded_and_evidence_only() -> Non
     assert "get_ha_status" in visible_tools
     assert "get_ha_members" not in visible_tools
     context = provider.contexts[-1].model_dump_json()
-    assert injection in context
+    assert injection not in context
+    assert "member-1" in context
     assert "untrusted_device_data" in context
     assert "get system ha status" not in context
 
@@ -404,6 +417,60 @@ async def test_confirmed_without_evidence_and_deterministic_contradiction_are_re
         deterministic_report=deterministic_report(diagnosis=confirmed),
     )
     assert contradiction.error_category is AgentErrorCategory.DETERMINISTIC_CONTRADICTION
+
+
+@pytest.mark.asyncio
+async def test_ai_cannot_upgrade_probable_root_cause_without_new_evidence() -> None:
+    probable = Diagnosis(
+        summary="The typed evidence narrows the fault domain only.",
+        strength=DiagnosisStrength.PROBABLE,
+        evidence_ids=(UUID(int=1),),
+        missing_evidence=("heartbeat_physical_layer_unobservable",),
+    )
+    runtime, _provider, _store, device = build_agent(
+        [
+            AIToolCallsResponse(tool_calls=(call(10, "get_interfaces"),)),
+            AIFinalResponse(
+                summary="A specific physical cause is confirmed.",
+                diagnosis_strength=DiagnosisStrength.CONFIRMED,
+                evidence_ids=(UUID(int=1),),
+            ),
+        ]
+    )
+    report = await runtime.run(
+        AgentInvestigationRequest(device_id=device.name, question="Inspect HA."),
+        device=device,
+        deterministic_report=deterministic_report(diagnosis=probable),
+    )
+    assert report.error_category is AgentErrorCategory.DETERMINISTIC_CONTRADICTION
+
+
+@pytest.mark.asyncio
+async def test_ai_must_preserve_confirmed_deterministic_finding_references() -> None:
+    confirmed_finding = Finding(
+        code="ha_configuration_out_of_sync",
+        title="HA configuration out of sync",
+        summary="FortiOS directly reports a synchronization mismatch.",
+        severity=FindingSeverity.WARNING,
+        strength=DiagnosisStrength.CONFIRMED,
+        evidence_ids=(UUID(int=1),),
+    )
+    runtime, _provider, _store, device = build_agent(
+        [
+            AIToolCallsResponse(tool_calls=(call(10, "get_interfaces"), call(11, "get_routes"))),
+            AIFinalResponse(
+                summary="Only route evidence was considered.",
+                diagnosis_strength=DiagnosisStrength.PROBABLE,
+                evidence_ids=(UUID(int=2),),
+            ),
+        ]
+    )
+    report = await runtime.run(
+        AgentInvestigationRequest(device_id=device.name, question="Inspect HA."),
+        device=device,
+        deterministic_report=deterministic_report(findings=(confirmed_finding,)),
+    )
+    assert report.error_category is AgentErrorCategory.DETERMINISTIC_CONTRADICTION
 
 
 @pytest.mark.asyncio

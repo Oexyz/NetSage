@@ -298,10 +298,24 @@ class AgentRuntime:
         if not set(response.evidence_ids).issubset(known_ids):
             return AgentErrorCategory.INVALID_EVIDENCE_REFERENCE
         deterministic = report.diagnosis
+        confirmed_finding_ids = {
+            evidence_id
+            for finding in report.findings
+            if finding.strength is DiagnosisStrength.CONFIRMED
+            for evidence_id in finding.evidence_ids
+        }
+        if confirmed_finding_ids and not confirmed_finding_ids.issubset(response.evidence_ids):
+            return AgentErrorCategory.DETERMINISTIC_CONTRADICTION
         if deterministic is not None and deterministic.strength is DiagnosisStrength.CONFIRMED:
             if response.diagnosis_strength is not DiagnosisStrength.CONFIRMED:
                 return AgentErrorCategory.DETERMINISTIC_CONTRADICTION
             if not set(deterministic.evidence_ids).issubset(response.evidence_ids):
+                return AgentErrorCategory.DETERMINISTIC_CONTRADICTION
+        if deterministic is not None and _is_stronger(
+            response.diagnosis_strength, deterministic.strength
+        ):
+            deterministic_ids = set(report.evidence_ids)
+            if set(response.evidence_ids).issubset(deterministic_ids):
                 return AgentErrorCategory.DETERMINISTIC_CONTRADICTION
         return None
 
@@ -339,3 +353,13 @@ class AgentRuntime:
             tool_results=tuple(results),
             error_category=category,
         )
+
+
+def _is_stronger(candidate: DiagnosisStrength, baseline: DiagnosisStrength) -> bool:
+    ranks = {
+        DiagnosisStrength.INSUFFICIENT: 0,
+        DiagnosisStrength.PROBABLE: 1,
+        DiagnosisStrength.STRONG: 2,
+        DiagnosisStrength.CONFIRMED: 3,
+    }
+    return ranks[candidate] > ranks[baseline]

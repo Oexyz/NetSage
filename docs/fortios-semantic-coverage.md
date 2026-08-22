@@ -16,13 +16,13 @@ denominator.
 | Interfaces | Enriched `get_interfaces` | State, addresses, VLAN/parent, role, duplex, optional counters/errors | Administrative/operational state and IPsec interface correlation | Existing FortiOS 7.2.13 verification |
 | Routing | Existing `get_routes`, new `get_route_summary` | Routes and derived route summary | Active default and equal-cost summary without reachability claims | Existing route collection verified |
 | Firewall | Enriched `get_firewall_policies` | Direction, addresses, service, action, NAT, schedule, enabled and log-traffic state | Existing policy-presence/state analysis | Existing policy collection verified |
-| HA | `get_ha_status`, `get_ha_members` | Mode, health, synchronization and bounded members | Healthy, degraded, out-of-sync, low observed member count | Status, members and synchronization verified |
+| HA | `get_ha_status`, `get_ha_members`, `get_ha_history`, `get_ha_checksum_nonsync` | Mode, health, alias-only members, bounded history events, checksum comparison scopes | Staged config-drift, heartbeat/member, interface, restart/process, and insufficient physical-cause findings | Status, history, checksum, interface correlation and synchronization verified |
 | SD-WAN | `get_sdwan_status`, `get_sdwan_members`, `get_sdwan_health_checks` | Bounded members, health-check paths, FortiOS-reported SLA state and metrics | Dead path, explicit SLA failure, no alive path, healthy alternative | Explicit not-running state verified; active paths not available on target |
 | IPsec | `get_ipsec_status`, `get_ipsec_tunnels` | Bounded Phase 1, Phase 2, peers, SA state and counters; no key material | Phase 1 down, Phase 2 absent, established state and interface correlation | Enabled live; parser state partial |
 | BGP | `get_bgp_status`, `get_bgp_neighbors` | Router/local-AS and bounded summary/detailed neighbors | Not established, all FSM states, zero/missing received/advertised prefixes | Two reviewed live variants exhausted; output unrecognized |
 | OSPF | `get_ospf_status`, `get_ospf_neighbors` | Process identity and bounded neighbors | Full OSPF FSM state set and no-neighbor observation | Process enabled/parsed live; no adjacency available |
 
-Twelve semantic operations were added in this milestone. Five comprehensive
+Fourteen semantic operations are implemented. Five comprehensive
 status operations are AI-promoted: HA, SD-WAN, IPsec, BGP, and OSPF. Focused
 collection views and route summary remain Broker operations but are not included
 in the AI catalog.
@@ -30,6 +30,9 @@ in the AI catalog.
 ## Collection and compatibility behavior
 
 - HA members are limited to 64.
+- HA history is limited to 1,000,000 source characters and 2,048 normalized
+  events; checksum input is limited to 131,072 characters/512 lines and 128
+  scope results.
 - SD-WAN members are limited to 256 and health-check records to 512.
 - IPsec Phase 1 and tunnel collections are limited to 256; each tunnel can carry
   at most 512 Phase 2 records.
@@ -49,8 +52,10 @@ The administrator-facing
 [compatibility probe and matrix](fortios-compatibility.md) characterize these
 states without creating Investigation findings or adding data to AI context.
 
-Three read-only commands reuse trusted generated catalog IDs behind a fixed
-semantic enum: SD-WAN health checks, IKE gateway status, and IPsec tunnel status.
+Five read-only definitions reuse trusted generated catalog IDs behind a fixed
+semantic enum: HA history, HA checksum non-sync, SD-WAN health checks, IKE
+gateway status, and IPsec tunnel status. The HA pair is registered as diagnostic
+Broker operations and explicitly policy-enabled only for staged HA investigation.
 HA, SD-WAN member, BGP, and OSPF observations use separate fixed reviewed Driver
 requests because the source catalog either lacks the relevant `get` command or
 contains only debug-status syntax. Callers still cannot provide a command string.
@@ -67,7 +72,8 @@ classification reference and is not republished.
 
 Each operation returns a Pydantic model through `CommandResult`, ToolBroker,
 `EvidenceFactory`, and a discriminated `EvidenceEnvelope`. Device-controlled
-names and identifiers remain `UNTRUSTED_DEVICE_DATA`. Raw CLI, Catalog IDs,
+names and identifiers remain `UNTRUSTED_DEVICE_DATA`; HA member identities are
+collapsed to `member-N` aliases. Raw CLI, Catalog IDs,
 credentials, management addresses, and transport objects are not AI inputs.
 
 The five AI-visible tools describe what they observe and what they do not prove.
@@ -102,6 +108,7 @@ Remaining evidence before a Supported promotion:
 - live OSPF FULL and non-FULL adjacencies;
 - broader IPsec variants such as dial-up and ADVPN without selecting user or key
   material;
-- additional HA healthy/degraded/member-loss output variants;
+- additional HA firmware/model/VDOM history and checksum variants beyond the
+  live 7.2.13 case;
 - repeated operational use demonstrating that firmware, VDOM, permission and
   license differences fail gracefully.

@@ -28,6 +28,8 @@ from netsage.models import (
     Capability,
     DeviceFacts,
     FirewallPolicy,
+    HAChecksumStatus,
+    HAHistory,
     HAMember,
     HAStatus,
     Interface,
@@ -43,6 +45,7 @@ from netsage.models import (
     SDWANHealthCheck,
     SDWANMember,
     SDWANStatus,
+    SemanticParserMetadata,
     SystemHealth,
     TracerouteResult,
 )
@@ -85,6 +88,27 @@ class ExampleDriver(NetworkDriver):
 
     async def get_ha_members(self) -> Sequence[HAMember]:
         return []
+
+    async def get_ha_history(self) -> HAHistory:
+        return HAHistory(
+            device_id="example",
+            parser=SemanticParserMetadata(variant="ha-history-v1"),
+            events=(),
+            ordering="source_order",
+            source_line_count=0,
+            unrecognized_event_count=0,
+            duplicate_event_count=0,
+        )
+
+    async def get_ha_checksum_nonsync(self) -> HAChecksumStatus:
+        return HAChecksumStatus(
+            device_id="example",
+            parser=SemanticParserMetadata(variant="ha-checksum-nonsync-v1"),
+            scopes=(),
+            mismatches=(),
+            mismatch_count=0,
+            source_line_count=0,
+        )
 
     async def get_sdwan_status(self) -> SDWANStatus:
         return SDWANStatus(device_id="example", enabled=False)
@@ -167,6 +191,8 @@ async def test_driver_contract() -> None:
     assert await driver.get_lldp_neighbors() == []
     assert (await driver.get_system_health()).status == "healthy"
     assert await driver.get_firewall_policies() == []
+    assert (await driver.get_ha_history()).events == ()
+    assert (await driver.get_ha_checksum_nonsync()).synchronized is None
 
 
 @pytest.mark.asyncio

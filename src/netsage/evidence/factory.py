@@ -1,6 +1,6 @@
 """Convert redacted Broker results into typed evidence envelopes."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
@@ -15,6 +15,8 @@ from netsage.evidence.models import (
     EvidencePayload,
     EvidenceProvenance,
     FirewallPoliciesEvidencePayload,
+    HAChecksumEvidencePayload,
+    HAHistoryEvidencePayload,
     HAMembersEvidencePayload,
     HAStatusEvidencePayload,
     InterfacesEvidencePayload,
@@ -42,6 +44,8 @@ from netsage.models import (
     DataTrust,
     DeviceFacts,
     FirewallPolicy,
+    HAChecksumStatus,
+    HAHistory,
     HAMember,
     HAStatus,
     Interface,
@@ -76,6 +80,8 @@ _OPERATION_CAPABILITIES = {
     "traceroute": Capability.TRACEROUTE,
     "get_ha_status": Capability.HA,
     "get_ha_members": Capability.HA,
+    "get_ha_history": Capability.HA,
+    "get_ha_checksum_nonsync": Capability.HA,
     "get_sdwan_status": Capability.SDWAN,
     "get_sdwan_members": Capability.SDWAN,
     "get_sdwan_health_checks": Capability.SDWAN,
@@ -113,6 +119,36 @@ def _many[ModelT: BaseModel](
     if set(output) != {"results"} or not isinstance(output["results"], list):
         raise InvalidEvidenceResultError("multi-result operation returned an invalid shape")
     return tuple(model.model_validate(item) for item in output["results"])
+
+
+def _safe_ha_members(members: Sequence[HAMember]) -> tuple[HAMember, ...]:
+    return tuple(
+        member.model_copy(
+            update={
+                "member_id": f"member-{index}",
+                "hostname": None,
+            }
+        )
+        for index, member in enumerate(members, start=1)
+    )
+
+
+def _safe_ha_status(status: HAStatus) -> HAStatus:
+    aliases = {
+        member.member_id.casefold(): f"member-{index}"
+        for index, member in enumerate(status.members, start=1)
+    }
+    primary = (
+        aliases.get(status.primary_member_id.casefold())
+        if status.primary_member_id is not None
+        else None
+    )
+    return status.model_copy(
+        update={
+            "primary_member_id": primary,
+            "members": _safe_ha_members(status.members),
+        }
+    )
 
 
 class EvidenceFactory:
@@ -193,9 +229,13 @@ class EvidenceFactory:
         if operation == "traceroute":
             return TracerouteEvidencePayload(result=_one(output, TracerouteResult))
         if operation == "get_ha_status":
-            return HAStatusEvidencePayload(status=_one(output, HAStatus))
+            return HAStatusEvidencePayload(status=_safe_ha_status(_one(output, HAStatus)))
         if operation == "get_ha_members":
-            return HAMembersEvidencePayload(members=_many(output, HAMember))
+            return HAMembersEvidencePayload(members=_safe_ha_members(_many(output, HAMember)))
+        if operation == "get_ha_history":
+            return HAHistoryEvidencePayload(history=_one(output, HAHistory))
+        if operation == "get_ha_checksum_nonsync":
+            return HAChecksumEvidencePayload(status=_one(output, HAChecksumStatus))
         if operation == "get_sdwan_status":
             return SDWANStatusEvidencePayload(status=_one(output, SDWANStatus))
         if operation == "get_sdwan_members":
@@ -224,6 +264,10 @@ def _parser_metadata(
 ) -> tuple[int, str, SemanticParserState]:
     parser: SemanticParserMetadata | None = None
     if isinstance(payload, HAStatusEvidencePayload):
+        parser = payload.status.parser
+    elif isinstance(payload, HAHistoryEvidencePayload):
+        parser = payload.history.parser
+    elif isinstance(payload, HAChecksumEvidencePayload):
         parser = payload.status.parser
     elif isinstance(payload, SDWANStatusEvidencePayload):
         parser = payload.status.parser

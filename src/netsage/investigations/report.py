@@ -5,7 +5,7 @@ from netsage.investigations.models import DiagnosisStrength, InvestigationReport
 
 def render_investigation_report(report: InvestigationReport) -> str:
     lines = [
-        "FortiGate Investigation",
+        "HA Diagnosis" if report.ha_summary is not None else "FortiGate Investigation",
         "",
         "Device:",
         report.investigation.device_id,
@@ -15,9 +15,29 @@ def render_investigation_report(report: InvestigationReport) -> str:
         "",
         "Evidence collected:",
         str(len(report.evidence_ids)),
-        "",
-        "Findings:",
     ]
+    if report.ha_summary is not None:
+        summary = report.ha_summary
+        lines.extend(
+            (
+                "",
+                "Synchronization:",
+                summary.synchronization.value.replace("_", " ").upper(),
+                "",
+                "Observed incidents:",
+                f"{summary.incident_count} correlated HA incident episode(s)",
+                "",
+                "Fault domain:",
+                ", ".join(domain.value.replace("_", " ") for domain in summary.fault_domains),
+                "",
+                "Correlation strength:",
+                summary.strength.value.upper(),
+                "",
+                "Specific physical cause:",
+                "NOT CONFIRMED",
+            )
+        )
+    lines.extend(("", "Findings:"))
     if report.findings:
         for index, finding in enumerate(report.findings, start=1):
             lines.extend(
@@ -25,6 +45,11 @@ def render_investigation_report(report: InvestigationReport) -> str:
                     "",
                     f"{index}. {finding.title}",
                     f"   {finding.severity.value.upper()}",
+                    *(
+                        (f"   Strength: {finding.strength.value.upper()}",)
+                        if finding.strength is not None
+                        else ()
+                    ),
                     f"   {finding.summary}",
                 )
             )

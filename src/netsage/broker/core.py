@@ -215,7 +215,13 @@ class ToolBroker:
             raise
 
         self._record(
-            started, name, device_name, arguments, AuditResult.SUCCESS, decision, "completed"
+            started,
+            name,
+            device_name,
+            arguments,
+            AuditResult.SUCCESS,
+            decision,
+            _success_detail(name, result.output),
         )
         return result
 
@@ -243,3 +249,21 @@ class ToolBroker:
                 detail=detail,
             )
         )
+
+
+def _success_detail(tool: str, output: Mapping[str, object]) -> str:
+    """Return bounded result metadata without copying normalized or raw output."""
+
+    payload = output.get("result")
+    if not isinstance(payload, dict):
+        return "completed"
+    truncated = payload.get("truncated") is True
+    if tool == "get_ha_history":
+        events = payload.get("events")
+        event_count = len(events) if isinstance(events, list) else 0
+        return f"completed; event_count={event_count}; truncated={str(truncated).lower()}"
+    if tool == "get_ha_checksum_nonsync":
+        mismatch_count = payload.get("mismatch_count")
+        safe_count = mismatch_count if isinstance(mismatch_count, int) else 0
+        return f"completed; mismatch_count={safe_count}; truncated={str(truncated).lower()}"
+    return "completed"

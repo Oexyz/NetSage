@@ -12,6 +12,8 @@ from netsage.models import (
     Capability,
     DeviceFacts,
     FirewallPolicy,
+    HAChecksumStatus,
+    HAHistory,
     HAMember,
     HAStatus,
     Interface,
@@ -79,6 +81,12 @@ class NetworkDriver(ABC):
 
     @abstractmethod
     async def get_ha_members(self) -> Sequence[HAMember]: ...
+
+    @abstractmethod
+    async def get_ha_history(self) -> HAHistory: ...
+
+    @abstractmethod
+    async def get_ha_checksum_nonsync(self) -> HAChecksumStatus: ...
 
     @abstractmethod
     async def get_sdwan_status(self) -> SDWANStatus: ...

@@ -34,6 +34,8 @@ from netsage.drivers.fortios.semantic import (
     FortiOSSemanticParseError,
     parse_bgp_neighbors_status,
     parse_bgp_status,
+    parse_ha_checksum_nonsync,
+    parse_ha_history,
     parse_ha_status,
     parse_ipsec_status,
     parse_ospf_status,
@@ -58,6 +60,8 @@ from netsage.models import (
     Capability,
     DeviceFacts,
     FirewallPolicy,
+    HAChecksumStatus,
+    HAHistory,
     HAMember,
     HAStatus,
     Interface,
@@ -223,6 +227,18 @@ class FortiOSDriver(NetworkDriver):
         if status.truncated:
             raise IncompleteCollectionError("FortiOS HA member collection was truncated")
         return status.members
+
+    async def get_ha_history(self) -> HAHistory:
+        (output,) = await self._transport.execute_semantic(
+            (FortiOSSemanticRequest(FortiOSSemanticCommand.HA_HISTORY),)
+        )
+        return parse_ha_history(self._device_id, output)
+
+    async def get_ha_checksum_nonsync(self) -> HAChecksumStatus:
+        (output,) = await self._transport.execute_semantic(
+            (FortiOSSemanticRequest(FortiOSSemanticCommand.HA_CHECKSUM_NONSYNC),)
+        )
+        return parse_ha_checksum_nonsync(self._device_id, output)
 
     async def get_sdwan_status(self) -> SDWANStatus:
         members, health = await self._transport.execute_semantic(

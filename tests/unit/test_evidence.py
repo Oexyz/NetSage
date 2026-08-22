@@ -5,9 +5,15 @@ from uuid import UUID
 import pytest
 from pydantic import ValidationError
 
+from netsage.drivers.fortios.semantic import (
+    parse_ha_checksum_nonsync,
+    parse_ha_history,
+)
 from netsage.evidence import (
     EvidenceEnvelope,
     EvidenceFactory,
+    HAChecksumEvidencePayload,
+    HAHistoryEvidencePayload,
     InMemoryEvidenceStore,
     InterfacesEvidencePayload,
     InvalidEvidenceResultError,
@@ -484,3 +490,56 @@ def test_evidence_store_rejects_recognized_secret_and_duplicate_id() -> None:
     assert safe_store.list_for_investigation(INVESTIGATION_ID) == (safe_evidence,)
     with pytest.raises(ValueError, match="already exists"):
         safe_store.add(safe_evidence)
+
+
+def test_ha_diagnostic_evidence_contains_only_typed_normalized_data() -> None:
+    history = parse_ha_history(
+        "fortigate-lab",
+        "\n".join(
+            (
+                "<2025-01-01 10:00:00> member peer-a lost heartbeat on hbdev ha-link-a",
+                "<2025-01-01 10:00:01> new member peer-a joins the cluster",
+            )
+        ),
+    )
+    checksum = parse_ha_checksum_nonsync(
+        "fortigate-lab",
+        "\n".join(
+            (
+                "member-a",
+                "global: 00 01 02 03 04 05 06 07",
+                "checksum",
+                "global: 00 01 02 03 04 05 06 ff",
+            )
+        ),
+    )
+    factory = factory_for(EVIDENCE_ID_1, EVIDENCE_ID_2)
+    history_evidence = factory.create(
+        investigation_id=INVESTIGATION_ID,
+        capability=Capability.HA,
+        platform=Platform.FORTIOS,
+        driver="SyntheticDriver",
+        result=CommandResult(
+            device="fortigate-lab",
+            operation="get_ha_history",
+            output={"result": history.model_dump(mode="json")},
+        ),
+    )
+    checksum_evidence = factory.create(
+        investigation_id=INVESTIGATION_ID,
+        capability=Capability.HA,
+        platform=Platform.FORTIOS,
+        driver="SyntheticDriver",
+        result=CommandResult(
+            device="fortigate-lab",
+            operation="get_ha_checksum_nonsync",
+            output={"result": checksum.model_dump(mode="json")},
+        ),
+    )
+
+    assert isinstance(history_evidence.payload, HAHistoryEvidencePayload)
+    assert isinstance(checksum_evidence.payload, HAChecksumEvidencePayload)
+    serialized = history_evidence.model_dump_json() + checksum_evidence.model_dump_json()
+    assert "peer-a" not in serialized
+    assert "00 01 02" not in serialized
+    assert "diagnose sys ha" not in serialized

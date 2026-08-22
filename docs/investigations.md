@@ -57,10 +57,24 @@ cause.
 
 ### HA health
 
-Collects bounded HA status and members. Direct FortiOS out-of-sync or degraded
-health state can produce `CONFIRMED` operational findings without inventing the
-reason for synchronization or failover problems. A single observed member is a
-warning because expected cluster membership is not known.
+Uses staged, bounded collection. Stage 1 always collects HA status and members.
+Only an out-of-sync, degraded, truncated, or anomalous member state triggers
+Stage 2 HA history and checksum non-sync collection. Heartbeat/member events then
+trigger Stage 3 normalized heartbeat-interface state. A healthy synchronized
+cluster stops after Stage 1.
+
+The workflow builds normalized timestamped events, deduplicates exact repeats,
+groups timestamped incidents with a conservative five-minute window, and reports
+configuration synchronization, heartbeat communication, heartbeat interface,
+member restart, HA-process, cluster-membership, or unknown fault domains. Direct
+out-of-sync remains `CONFIRMED`; heartbeat/member loss and rejoin without direct
+link Evidence is `PROBABLE`; correlated interface down/up can be `STRONG`.
+
+An explicit restart event is required before reporting a member or HA-process
+restart. A rejoin alone does not prove a reboot. Even an unavailable heartbeat
+interface does not prove a bad cable, port, or peer. The HA report explicitly
+keeps the specific physical cause unconfirmed and lists the missing Evidence.
+See [FortiOS HA diagnostics](fortios-ha-diagnostics.md).
 
 ### SD-WAN health
 
@@ -97,6 +111,11 @@ Tool failures are isolated. A health investigation can retain successful facts,
 interfaces, and health evidence when route collection fails, but the overall
 diagnosis becomes `INSUFFICIENT`. Failure records contain bounded categories, not
 raw output or arbitrary exception messages.
+
+HA correlation can retain a `PROBABLE` or `STRONG` fault-domain conclusion while
+listing narrower missing physical Evidence. If a required collection itself
+fails, the report status remains `INSUFFICIENT`; successful direct findings are
+not discarded.
 
 ## CLI
 
@@ -145,9 +164,12 @@ The complete health-investigation flow has been live-verified against an
 authorized FortiOS 7.2.13 device. The verification persisted no credential,
 device address, hostname, interface data, evidence payload, or raw capture.
 
-Representative HA, disabled SD-WAN, IPsec, and OSPF focused workflows were also
-verified live. BGP was not asserted as disabled when the target returned an empty
-summary; the routing workflow retained OSPF Evidence and reported BGP as missing.
+Representative correlated HA, disabled SD-WAN, IPsec, and OSPF focused workflows
+were also verified live. The HA run reproduced configuration out-of-sync plus
+repeated heartbeat/member incidents, correlated heartbeat interfaces, and did
+not invent a physical or restart cause. BGP was not asserted as disabled when
+the target returned an empty summary; the routing workflow retained OSPF
+Evidence and reported BGP as missing.
 The native OAuth semantic-tool verification was attempted but failed safely
 before a tool call with a typed provider-output error, so automated semantic AI
 verification continues to rely on `FakeAIProvider`.

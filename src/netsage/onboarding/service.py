@@ -26,6 +26,7 @@ from netsage.investigations import (
 from netsage.models import CredentialReference, DeviceFacts, DeviceRef, Platform
 from netsage.onboarding.models import CheckStatus, DeviceReadiness, DeviceTestResult
 from netsage.onboarding.runtime import FortiOSRuntimeFactory, PreparedFortiOSRuntime
+from netsage.policies import ObservePolicy
 from netsage.state import (
     LocalState,
     SSHHostIdentityChangedError,
@@ -33,7 +34,7 @@ from netsage.state import (
     SSHHostTrustRecord,
     SSHTrustError,
 )
-from netsage.tools import FortiOSToolSet
+from netsage.tools import REVIEWED_HA_DIAGNOSTIC_TOOLS, FortiOSToolSet
 
 
 class DeviceOnboardingError(RuntimeError):
@@ -220,6 +221,7 @@ class FortiOSDeviceService:
         )
         broker = ToolBroker(
             inventory=inventory,
+            policy=ObservePolicy(allowed_diagnostics=REVIEWED_HA_DIAGNOSTIC_TOOLS),
             redactor=runtime.redactor,
             audit_sink=audit_sink,
             user="local-cli",

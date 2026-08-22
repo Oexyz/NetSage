@@ -16,6 +16,8 @@ from netsage.models import (
     DataTrust,
     DeviceFacts,
     FirewallPolicy,
+    HAChecksumStatus,
+    HAHistory,
     HAMember,
     HAStatus,
     Interface,
@@ -145,6 +147,20 @@ class HAMembersEvidencePayload(BaseModel):
     members: tuple[HAMember, ...] = Field(max_length=MAX_HA_MEMBERS)
 
 
+class HAHistoryEvidencePayload(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["ha_history"] = "ha_history"
+    history: HAHistory
+
+
+class HAChecksumEvidencePayload(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    kind: Literal["ha_checksum_nonsync"] = "ha_checksum_nonsync"
+    status: HAChecksumStatus
+
+
 class SDWANStatusEvidencePayload(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -227,6 +243,8 @@ EvidencePayload = Annotated[
     | TracerouteEvidencePayload
     | HAStatusEvidencePayload
     | HAMembersEvidencePayload
+    | HAHistoryEvidencePayload
+    | HAChecksumEvidencePayload
     | SDWANStatusEvidencePayload
     | SDWANMembersEvidencePayload
     | SDWANHealthChecksEvidencePayload
@@ -260,7 +278,13 @@ def _payload_capability(payload: EvidencePayload) -> Capability:
         return Capability.PING
     if isinstance(payload, TracerouteEvidencePayload):
         return Capability.TRACEROUTE
-    if isinstance(payload, HAStatusEvidencePayload | HAMembersEvidencePayload):
+    if isinstance(
+        payload,
+        HAStatusEvidencePayload
+        | HAMembersEvidencePayload
+        | HAHistoryEvidencePayload
+        | HAChecksumEvidencePayload,
+    ):
         return Capability.HA
     if isinstance(
         payload,
@@ -299,6 +323,10 @@ def _payload_device_ids(payload: EvidencePayload) -> frozenset[str]:
         return frozenset({payload.status.device_id})
     if isinstance(payload, HAMembersEvidencePayload):
         return frozenset(item.device_id for item in payload.members)
+    if isinstance(payload, HAHistoryEvidencePayload):
+        return frozenset({payload.history.device_id})
+    if isinstance(payload, HAChecksumEvidencePayload):
+        return frozenset({payload.status.device_id})
     if isinstance(payload, SDWANStatusEvidencePayload):
         return frozenset({payload.status.device_id})
     if isinstance(payload, SDWANMembersEvidencePayload):

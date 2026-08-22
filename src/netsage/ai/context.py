@@ -51,6 +51,7 @@ class AIContextBuilder:
                     title=item.title,
                     summary=item.summary,
                     severity=item.severity,
+                    strength=item.strength,
                     evidence_ids=item.evidence_ids,
                 )
                 for item in report.findings

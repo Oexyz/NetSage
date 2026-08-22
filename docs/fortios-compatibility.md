@@ -58,6 +58,11 @@ catalog. Operations run sequentially. An authentication, host-key, connection,
 timeout, or output-limit failure on the first operation stops further collection
 to avoid repeated login/load attempts.
 
+The staged HA investigation has two additional Broker-only parsers for history
+and checksum non-sync. Compatibility deliberately does not execute them: its HA
+area remains the cheap status/member compatibility check, while root-cause
+correlation belongs to `netsage investigate DEVICE --focus ha`.
+
 ## Capability states
 
 | State | Meaning |
@@ -146,7 +151,7 @@ Fortinet material. `LIVE` means the area was exercised on the authorized target.
 | Interfaces | physical, VLAN, aggregate, loopback, tunnel, missing physical state, counters, unknown fields, injection text | UNIT_FIXTURE, LIVE |
 | Routing | single/multiple/default/ECMP, inactive, static/connected/BGP/OSPF/unknown origin | UNIT_FIXTURE, LIVE |
 | Firewall | disabled, missing logtraffic, NAT/ippool, multiple interfaces/services, schedule/comments/injection | UNIT_FIXTURE, LIVE |
-| HA | standalone, A-P, A-A, two/multi-member, out-of-sync, legacy roles, partial member data | UNIT_FIXTURE, REFERENCE_VALIDATED, LIVE |
+| HA | standalone, A-P, A-A, two/multi-member, alias privacy, out-of-sync, legacy roles, partial members, history heartbeat/member/interface events, checksum equal/mismatch, truncation/injection | UNIT_FIXTURE, REFERENCE_VALIDATED, LIVE |
 | SD-WAN | disabled, not configured, enabled/no checks, alive/dead, SLA pass/fail, partial metrics, multiple records | UNIT_FIXTURE, REFERENCE_VALIDATED, disabled-state LIVE |
 | IPsec | none/partial/up/down, multiple tunnels/selectors/SAs, IPv4/IPv6 peers, NAT-T, ADVPN/dial-up-safe unknown fields, key canaries | UNIT_FIXTURE, REFERENCE_VALIDATED, LIVE |
 | BGP | Established, Idle, Connect, Active, OpenSent, OpenConfirm, unknown, zero/missing prefixes, summary/detailed, empty/denied/unavailable | UNIT_FIXTURE, REFERENCE_VALIDATED; live output unrecognized |
@@ -185,7 +190,7 @@ No absent feature was configured for testing.
 | Interface semantics | READY | Type/state/counter variants and live report |
 | Routing semantics | READY | Active/inactive/default/ECMP/origin variants and live report |
 | Firewall semantics | READY | Policy/NAT/list/optional variants and live report |
-| HA semantics | READY | Standalone/A-P/A-A/partial matrix and live report |
+| HA semantics | READY | Status plus staged history/checksum/interface correlation and live root-cause narrowing |
 | SD-WAN semantics | PARTIAL | Disabled-state live; active/SLA live path unavailable |
 | IPsec semantics | PARTIAL | Live enabled result remains parser-partial |
 | BGP semantics | GAP | Fixture/reference matrix passes; live output remains unrecognized |

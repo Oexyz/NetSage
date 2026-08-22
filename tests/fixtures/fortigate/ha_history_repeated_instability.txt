@@ -1,0 +1,14 @@
+<2025-01-01 10:00:00> hbdev ha-link-a link status changed from 1 to 0
+<2025-01-01 10:00:01> member member-a lost heartbeat on hbdev ha-link-a
+<2025-01-01 10:00:01> member member-a lost heartbeat on hbdev ha-link-a
+<2025-01-01 10:00:20> hbdev ha-link-a link status changed from 0 to 1
+<2025-01-01 10:00:21> new member member-a joins the cluster
+<2025-01-01 10:10:00> hbdev ha-link-a link status changed from 1 to 0
+<2025-01-01 10:10:01> member member-a lost heartbeat on hbdev ha-link-a
+<2025-01-01 10:10:20> hbdev ha-link-a link status changed from 0 to 1
+<2025-01-01 10:10:21> new member member-a joins the cluster
+<2025-01-01 10:20:00> hbdev ha-link-a link status changed from 1 to 0
+<2025-01-01 10:20:01> member member-a lost heartbeat on hbdev ha-link-a
+<2025-01-01 10:20:20> hbdev ha-link-a link status changed from 0 to 1
+<2025-01-01 10:20:21> new member member-a joins the cluster
+<2025-01-01 10:20:22> member-a is elected as the cluster primary of 2 member

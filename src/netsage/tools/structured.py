@@ -10,6 +10,8 @@ from netsage.drivers import NetworkDriver
 from netsage.models import Capability, CommandResult
 from netsage.policies import OperationClass
 
+REVIEWED_HA_DIAGNOSTIC_TOOLS = frozenset({"get_ha_history", "get_ha_checksum_nonsync"})
+
 
 class StructuredDriverToolSet:
     """Register semantic tools backed by an explicit device-to-driver map."""
@@ -53,6 +55,24 @@ class StructuredDriverToolSet:
         broker.register(
             ToolDefinition(name="get_ha_members", capability=Capability.HA, ai_visible=False),
             self.get_ha_members,
+        )
+        broker.register(
+            ToolDefinition(
+                name="get_ha_history",
+                capability=Capability.HA,
+                operation_class=OperationClass.DIAGNOSTIC,
+                ai_visible=False,
+            ),
+            self.get_ha_history,
+        )
+        broker.register(
+            ToolDefinition(
+                name="get_ha_checksum_nonsync",
+                capability=Capability.HA,
+                operation_class=OperationClass.DIAGNOSTIC,
+                ai_visible=False,
+            ),
+            self.get_ha_checksum_nonsync,
         )
         broker.register(
             ToolDefinition(name="get_sdwan_status", capability=Capability.SDWAN),
@@ -155,6 +175,18 @@ class StructuredDriverToolSet:
     async def get_ha_members(self, arguments: Mapping[str, object]) -> CommandResult:
         return self._many(
             "get_ha_members", arguments, await self._driver(arguments).get_ha_members()
+        )
+
+    async def get_ha_history(self, arguments: Mapping[str, object]) -> CommandResult:
+        return self._one(
+            "get_ha_history", arguments, await self._driver(arguments).get_ha_history()
+        )
+
+    async def get_ha_checksum_nonsync(self, arguments: Mapping[str, object]) -> CommandResult:
+        return self._one(
+            "get_ha_checksum_nonsync",
+            arguments,
+            await self._driver(arguments).get_ha_checksum_nonsync(),
         )
 
     async def get_sdwan_status(self, arguments: Mapping[str, object]) -> CommandResult:

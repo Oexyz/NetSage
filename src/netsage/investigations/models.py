@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from netsage.evidence import EvidenceCollectionFailure
+from netsage.models import HAFaultDomain, HASynchronizationState
 
 
 def _utc_datetime(value: datetime) -> datetime:
@@ -88,6 +89,7 @@ class Finding(BaseModel):
     title: str = Field(min_length=1, max_length=160)
     summary: str = Field(min_length=1, max_length=500)
     severity: FindingSeverity
+    strength: DiagnosisStrength | None = None
     evidence_ids: tuple[UUID, ...]
 
 
@@ -103,11 +105,28 @@ class Diagnosis(BaseModel):
 
     @model_validator(mode="after")
     def validate_strength(self) -> Self:
-        if self.missing_evidence and self.strength is not DiagnosisStrength.INSUFFICIENT:
-            raise ValueError("missing evidence requires insufficient diagnosis strength")
         if self.strength is not DiagnosisStrength.INSUFFICIENT and not self.evidence_ids:
             raise ValueError("supported diagnosis must reference evidence")
         return self
+
+
+class HADiagnosticSummary(BaseModel):
+    """Typed presentation of deterministic HA correlation, not a second diagnosis engine."""
+
+    model_config = ConfigDict(frozen=True)
+
+    synchronization: HASynchronizationState
+    history_event_count: int = Field(ge=0)
+    incident_count: int = Field(ge=0)
+    heartbeat_instability: bool
+    interface_instability: bool
+    checksum_mismatch_count: int = Field(ge=0)
+    member_restart_observed: bool
+    ha_process_restart_observed: bool
+    fault_domains: tuple[HAFaultDomain, ...]
+    strength: DiagnosisStrength
+    missing_evidence: tuple[str, ...] = ()
+    specific_physical_cause_confirmed: Literal[False] = False
 
 
 class InvestigationReport(BaseModel):
@@ -122,6 +141,7 @@ class InvestigationReport(BaseModel):
     failures: tuple[EvidenceCollectionFailure, ...] = ()
     findings: tuple[Finding, ...] = ()
     diagnosis: Diagnosis | None = None
+    ha_summary: HADiagnosticSummary | None = None
     configuration_changed: Literal[False] = False
 
     @field_validator("completed_at")
@@ -139,6 +159,11 @@ class InvestigationReport(BaseModel):
                 raise ValueError("finding references evidence outside the investigation")
         if self.diagnosis and not set(self.diagnosis.evidence_ids).issubset(evidence_ids):
             raise ValueError("diagnosis references evidence outside the investigation")
+        if (
+            self.ha_summary is not None
+            and self.investigation.kind is not InvestigationKind.HA_HEALTH
+        ):
+            raise ValueError("HA diagnostic summary requires an HA investigation")
         if self.failures and self.status is not InvestigationStatus.INSUFFICIENT:
             raise ValueError("partial collection must be reported as insufficient")
         return self
