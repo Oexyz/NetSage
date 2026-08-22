@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import ClassVar
@@ -195,8 +196,9 @@ def test_compatibility_one_shot_and_repl_use_the_same_handler() -> None:
 
 def test_compatibility_help_does_not_prepare_a_runtime() -> None:
     result = runner.invoke(app, ["fortios", "compatibility", "--help"])
+    output = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", result.stdout)
 
     assert result.exit_code == 0
-    assert "--json" in result.stdout
-    assert "--export" in result.stdout
+    assert "--json" in output
+    assert "--export" in output
     assert FakeService.calls == []
